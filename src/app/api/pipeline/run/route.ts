@@ -71,6 +71,8 @@ async function extractClaims(
         text: string;
         category: string;
         entities_mentioned?: string[];
+        page_reference?: number;
+        bbox?: { x: number; y: number; width: number; height: number };
     }
 
     const allClaims: ExtractedClaim[] = [];
@@ -86,10 +88,49 @@ async function extractClaims(
                     .update({ step: "extracting", progress, updated_at: new Date().toISOString() })
                     .eq("id", jobId);
 
-                const response = await openai.responses.create({
-                    model: "gpt-4.1-mini",
-                    max_output_tokens: 2000,
-                    input: [
+                const response = await openai.chat.completions.create({
+                    model: "gpt-4o-mini",
+                    max_completion_tokens: 2000,
+                    response_format: {
+                        type: "json_schema",
+                        json_schema: {
+                            name: "claims_extraction",
+                            strict: true,
+                            schema: {
+                                type: "object",
+                                properties: {
+                                    claims: {
+                                        type: "array",
+                                        items: {
+                                            type: "object",
+                                            properties: {
+                                                text: { type: "string" },
+                                                category: { type: "string", enum: ["carbon", "sourcing", "water", "labor", "governance", "other"] },
+                                                page_reference: { type: ["number", "null"] },
+                                                bbox: {
+                                                    type: ["object", "null"],
+                                                    properties: {
+                                                        x: { type: "number" },
+                                                        y: { type: "number" },
+                                                        width: { type: "number" },
+                                                        height: { type: "number" }
+                                                    },
+                                                    required: ["x", "y", "width", "height"],
+                                                    additionalProperties: false
+                                                },
+                                                entities_mentioned: { type: "array", items: { type: "string" } }
+                                            },
+                                            required: ["text", "category", "page_reference", "bbox", "entities_mentioned"],
+                                            additionalProperties: false
+                                        }
+                                    }
+                                },
+                                required: ["claims"],
+                                additionalProperties: false
+                            }
+                        }
+                    },
+                    messages: [
                         {
                             role: "system",
                             content: `You are an ESG analyst. Extract every explicit sustainability claim from this document segment.
@@ -99,9 +140,7 @@ Rules:
 - Do NOT extract vague aspirational language
 - Categorize: carbon | sourcing | water | labor | governance
 - Include the exact quote from the document
-
-Return JSON: { "claims": [{ "text": "exact claim text", "category": "category", "entities_mentioned": ["entity1"] }] }
-If none found: { "claims": [] }`,
+- For each claim, also return the page number (1-indexed) and the bounding box of the claim text as a percentage of the page dimensions (x, y, width, height from top-left). If you cannot determine the exact bounding box, return your best estimate based on where in the document the text appears.`,
                         },
                         {
                             role: "user",
@@ -111,17 +150,15 @@ If none found: { "claims": [] }`,
                 });
 
                 try {
-                    const content = response.output_text;
+                    const content = response.choices[0]?.message?.content;
                     if (content) {
-                        // Strip markdown code fences if present
-                        const cleaned = content.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
-                        const parsed = JSON.parse(cleaned);
+                        const parsed = JSON.parse(content);
                         if (parsed.claims && Array.isArray(parsed.claims)) {
                             allClaims.push(...parsed.claims);
                         }
                     }
-                } catch {
-                    console.error(`Failed to parse claims from chunk ${i}`);
+                } catch (err) {
+                    console.error(`Failed to parse claims from chunk ${i}:`, err);
                 }
             })
         )
@@ -142,9 +179,11 @@ If none found: { "claims": [] }`,
     const claimRows = finalClaims.map((claim, index) => ({
         report_id: reportId,
         claim_text: claim.text,
-        category: claim.category || "governance",
+        category: claim.category?.toLowerCase() === "governance" ? "labor" : (claim.category || "labor"),
         entities: { entities_mentioned: claim.entities_mentioned || [] },
         seq_index: index,
+        page_reference: claim.page_reference || null,
+        bbox: claim.bbox || null,
     }));
 
     if (claimRows.length > 0) {
@@ -192,25 +231,43 @@ async function disambiguateEntities(
     await Promise.all(
         batches.map((batch, batchIdx) =>
             limit(async () => {
-                const response = await openai.responses.create({
-                    model: "gpt-4.1-nano",
-                    max_output_tokens: 500,
-                    input: [
+                const response = await openai.chat.completions.create({
+                    model: "gpt-4o-mini",
+                    max_completion_tokens: 500,
+                    response_format: {
+                        type: "json_schema",
+                        json_schema: {
+                            name: "entity_disambiguation",
+                            strict: true,
+                            schema: {
+                                type: "object",
+                                properties: {
+                                    entities: {
+                                        type: "array",
+                                        items: {
+                                            type: "object",
+                                            properties: {
+                                                claim_id: { type: "string" },
+                                                companies: { type: "array", items: { type: "string" } },
+                                                regions: { type: "array", items: { type: "string" } },
+                                                metrics: { type: "array", items: { type: "string" } },
+                                                time_period: { type: "string" },
+                                                suppliers: { type: "array", items: { type: "string" } }
+                                            },
+                                            required: ["claim_id", "companies", "regions", "metrics", "time_period", "suppliers"],
+                                            additionalProperties: false
+                                        }
+                                    }
+                                },
+                                required: ["entities"],
+                                additionalProperties: false
+                            }
+                        }
+                    },
+                    messages: [
                         {
                             role: "system",
-                            content: `For each claim, extract entities to verify. Return JSON:
-{
-  "entities": [
-    {
-      "claim_id": "id",
-      "companies": ["list"],
-      "regions": ["list"],
-      "metrics": ["list"],
-      "time_period": "string",
-      "suppliers": ["list"]
-    }
-  ]
-}`,
+                            content: `For each claim, extract specific companies, regions, metrics, time periods, and suppliers.`,
                         },
                         {
                             role: "user",
@@ -222,10 +279,9 @@ async function disambiguateEntities(
                 });
 
                 try {
-                    const content = response.output_text;
+                    const content = response.choices[0]?.message?.content;
                     if (content) {
-                        const cleaned = content.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
-                        const parsed = JSON.parse(cleaned);
+                        const parsed = JSON.parse(content);
                         if (parsed.entities && Array.isArray(parsed.entities)) {
                             for (const entity of parsed.entities) {
                                 await supabase
@@ -392,23 +448,44 @@ async function scoreClaims(
                             .join("\n\n");
 
                 try {
-                    const response = await openai.responses.create({
-                        model: "gpt-5-mini",
-                        reasoning: { effort: "low" },
-                        max_output_tokens: 800,
-                        input: [
+                    const response = await openai.chat.completions.create({
+                        model: "gpt-4o-mini",
+                        max_completion_tokens: 800,
+                        response_format: {
+                            type: "json_schema",
+                            json_schema: {
+                                name: "claim_scoring",
+                                strict: true,
+                                schema: {
+                                    type: "object",
+                                    properties: {
+                                        verdict: { type: "string", enum: ["supported", "unverified", "contradicted", "mixed"] },
+                                        confidence: { type: ["number", "null"] },
+                                        reasoning: { type: "string" }
+                                    },
+                                    required: ["verdict", "confidence", "reasoning"],
+                                    additionalProperties: false
+                                }
+                            }
+                        },
+                        messages: [
                             {
                                 role: "system",
-                                content: `Assess the credibility of a corporate sustainability claim based on evidence.
+                                content: `You are a strict ESG auditor scoring a corporate sustainability claim against real evidence.
 
-RULES:
-- ZERO evidence → verdict "unverified", confidence null
-- Evidence only SUPPORTS → verdict "supported", confidence 0.65-0.85
-- Evidence CONTRADICTS → verdict "contradicted", confidence 0.15-0.35
-- Mixed evidence → weigh the balance
-- Reasoning must be a clear paragraph
+SCORING ZONES (confidence is 0.0 to 1.0):
+- RED ZONE (0.00-0.30): The evidence CLEARLY CONTRADICTS the claim. Use 0.00-0.15 if evidence unanimously contradicts, 0.15-0.30 if mostly contradicting with minor caveats.
+- YELLOW ZONE (0.30-0.70): The evidence is MIXED or CONFLICTING — some sources support, others contradict, or the claim is partially true. Use this range when reality is complicated.
+- GREEN ZONE (0.70-1.00): The evidence CLEARLY SUPPORTS the claim. Use 0.85-1.00 if evidence unanimously supports with no caveats, 0.70-0.85 if mostly supporting with minor gaps.
+- GREY (null): ZERO evidence found — cannot assess.
 
-Return JSON only, no code fences: { "verdict": "supported"|"unverified"|"contradicted", "confidence": 0.0-1.0 or null, "reasoning": "paragraph" }`,
+VERDICT RULES:
+- confidence < 0.30 → verdict MUST be "contradicted"
+- confidence >= 0.30 and < 0.70 → verdict MUST be "mixed" (conflicting/unclear)
+- confidence >= 0.70 → verdict MUST be "supported"
+- confidence is null (no evidence) → verdict MUST be "unverified"
+
+Be DECISIVE. If evidence flat-out contradicts a claim, give it 0.05-0.15, not 0.25. If evidence fully supports with documentation, give 0.90-1.00, not 0.72. Only use the yellow zone when sources genuinely conflict.`,
                             },
                             {
                                 role: "user",
@@ -417,9 +494,8 @@ Return JSON only, no code fences: { "verdict": "supported"|"unverified"|"contrad
                         ],
                     });
 
-                    const content = response.output_text || "{}";
-                    const cleaned = content.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
-                    const parsed = JSON.parse(cleaned);
+                    const content = response.choices[0]?.message?.content || "{}";
+                    const parsed = JSON.parse(content);
 
                     await supabase
                         .from("claims")
@@ -477,22 +553,55 @@ async function analyzeOverallReport(
         )
         .join("\n\n");
 
+    // Compute per-category scores from claim data
+    const categoryMap: Record<string, { total: number; sum: number }> = {};
+    for (const c of claims) {
+        const cat = c.category || "other";
+        if (!categoryMap[cat]) categoryMap[cat] = { total: 0, sum: 0 };
+        categoryMap[cat].total++;
+        if (c.confidence !== null && c.confidence !== undefined) {
+            categoryMap[cat].sum += Number(c.confidence);
+        }
+    }
+    const categoryScores: Record<string, number | null> = {};
+    for (const [cat, data] of Object.entries(categoryMap)) {
+        categoryScores[cat] = data.total > 0 ? Math.round((data.sum / data.total) * 100) : null;
+    }
+
     try {
-        const response = await openai.responses.create({
-            model: "gpt-5-mini",
-            reasoning: { effort: "low" },
-            max_output_tokens: 1500,
-            input: [
+        const response = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            max_completion_tokens: 1500,
+            response_format: {
+                type: "json_schema",
+                json_schema: {
+                    name: "overall_report",
+                    strict: true,
+                    schema: {
+                        type: "object",
+                        properties: {
+                            overall_score: { type: "number" },
+                            overall_analysis: { type: "string" }
+                        },
+                        required: ["overall_score", "overall_analysis"],
+                        additionalProperties: false
+                    }
+                }
+            },
+            messages: [
                 {
                     role: "system",
                     content: `You are a strict ESG auditor. Based on the assessments of individual claims from a sustainability report, provide an overall credibility score (0 to 100) for the report and a detailed analysis explaining why.
 
-RULES:
-- A high score means the report is well-supported by evidence.
-- A low score means the report contains greenwashing, contradictions, or unverified aspirational claims.
-- 'overall_analysis' should be a detailed, multi-paragraph plain text assessment evaluating the report's credibility. DO NOT use markdown formatting — no #, **, or - characters. Write in plain paragraphs separated by blank lines.
+SCORING RULES:
+- Weight contradicted claims heavily — a single verified lie significantly drops the score.
+- Unverified claims (no evidence) are treated as yellow flags, not green.
+- Supported claims only raise the score if backed by strong evidence.
+- A report full of contradictions should score below 30.
+- A well-evidenced report should score above 70.
+- Mixed reports should score 30-70.
 
-Return JSON only, no code fences: { "overall_score": 0-100, "overall_analysis": "plain text assessment" }`,
+'overall_analysis' should be a detailed, multi-paragraph plain text assessment. DO NOT use markdown formatting — no #, **, -, or * characters. Write in plain paragraphs separated by blank lines. Each paragraph should address a specific aspect: contradictions found, verified positive claims, areas lacking evidence, and final verdict.`,
                 },
                 {
                     role: "user",
@@ -501,19 +610,35 @@ Return JSON only, no code fences: { "overall_score": 0-100, "overall_analysis": 
             ],
         });
 
-        const content = response.output_text || "{}";
-        const cleaned = content.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
-        const parsed = JSON.parse(cleaned);
+        const content = response.choices[0]?.message?.content || "{}";
+        const parsed = JSON.parse(content);
+
+        const score = typeof parsed.overall_score === "number" ? parsed.overall_score : 0;
+        const analysis = typeof parsed.overall_analysis === "string" ? parsed.overall_analysis : "Analysis could not be completed.";
 
         await supabase
             .from("reports")
             .update({
-                overall_score: parsed.overall_score || 0,
-                overall_analysis: parsed.overall_analysis || "Analysis could not be completed.",
+                overall_score: score,
+                overall_analysis: analysis,
+                category_scores: categoryScores,
             })
             .eq("id", reportId);
+
+        console.log(`[Pipeline] Overall analysis saved: score=${score}, categories=${JSON.stringify(categoryScores)}`);
     } catch (err) {
         console.error("Overall analysis failed:", err);
+        // Fallback: save computed score from claims so overview always renders
+        const allConfidences = claims.filter(c => c.confidence !== null).map(c => Number(c.confidence));
+        const fallbackScore = allConfidences.length > 0 ? Math.round((allConfidences.reduce((a, b) => a + b, 0) / allConfidences.length) * 100) : 0;
+        await supabase
+            .from("reports")
+            .update({
+                overall_score: fallbackScore,
+                overall_analysis: "Automated overall analysis could not be completed. The score shown is an average of individual claim scores.",
+                category_scores: categoryScores,
+            })
+            .eq("id", reportId);
     }
 }
 

@@ -1,6 +1,5 @@
--gov violations sections
+
 -overivew not wokring
--add scrolling
--remove cap to claims
--add anaimte hero section
 -fix ui of front page
+-make it ic an see the pdf with highlighted text
+-add footer

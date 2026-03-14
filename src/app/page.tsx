@@ -18,19 +18,20 @@ import {
   Sparkles,
   Zap,
   Eye,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
-// Fonts that "fine print." cycles through before settling
+// Fonts to cycle through before settling on Syne
 const CYCLING_FONTS = [
-  "'Courier New', monospace",
-  "'Georgia', serif",
-  "'Comic Sans MS', cursive",
-  "'Impact', sans-serif",
-  "'Palatino Linotype', serif",
-  "'Trebuchet MS', sans-serif",
+  "'Caveat', cursive",
+  "'Bebas Neue', sans-serif",
+  "'Space Mono', monospace",
+  "'Playfair Display', serif",
+  "'Libre Baskerville', serif",
+  "var(--font-syne, 'Syne', sans-serif)"
 ];
 
 const fadeInUp = {
@@ -61,19 +62,20 @@ export default function HomePage() {
   const cycleInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    let elapsed = 0;
+    let count = 0;
+    const TOTAL_CYCLES = CYCLING_FONTS.length - 1;
     const CYCLE_SPEED = 300; // ms between font changes
-    const TOTAL_DURATION = 2000; // 2 seconds of cycling
 
     cycleInterval.current = setInterval(() => {
-      elapsed += CYCLE_SPEED;
-      if (elapsed >= TOTAL_DURATION) {
+      count++;
+      if (count >= TOTAL_CYCLES) {
         setSettled(true);
+        setCurrentFontIdx(TOTAL_CYCLES);
         if (cycleInterval.current) clearInterval(cycleInterval.current);
         // Show underline after settling
         setTimeout(() => setShowUnderline(true), 400);
       } else {
-        setCurrentFontIdx((prev) => (prev + 1) % CYCLING_FONTS.length);
+        setCurrentFontIdx(count);
       }
     }, CYCLE_SPEED);
 
@@ -132,40 +134,45 @@ export default function HomePage() {
   });
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--bg-base)" }}>
+    <div className="min-h-screen relative overflow-hidden" style={{ background: "var(--bg-base)" }}>
+      {/* Premium Background Gradients */}
+      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full opacity-20 blur-[120px] pointer-events-none" style={{ background: "radial-gradient(circle, var(--brand) 0%, transparent 70%)" }} />
+      <div className="absolute bottom-[20%] right-[-10%] w-[40%] h-[40%] rounded-full opacity-10 blur-[100px] pointer-events-none" style={{ background: "radial-gradient(circle, var(--brand-dark) 0%, transparent 70%)" }} />
+
       {/* Navigation */}
       <motion.nav
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="flex items-center justify-between px-8 py-5 max-w-6xl mx-auto"
+        className="relative z-10 flex items-center justify-between px-8 py-6 max-w-7xl mx-auto"
       >
         <div className="flex items-center gap-2">
           <Image
             src="/icon.png"
             alt="GreenWash"
-            width={28}
-            height={28}
+            width={32}
+            height={32}
+            className="drop-shadow-sm"
           />
           <span
-            className="font-display text-xl font-bold"
+            className="font-display text-2xl font-bold tracking-tight"
             style={{ color: "var(--text-primary)" }}
           >
             greenwash
           </span>
         </div>
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-8">
           <a
             href="#how-it-works"
-            className="text-sm font-medium transition-colors hover:opacity-80"
+            className="text-sm font-semibold transition-colors hover:opacity-75"
             style={{ color: "var(--text-secondary)" }}
           >
             How it works
           </a>
           <a
             href="#try-it"
-            className="text-sm font-medium transition-colors hover:opacity-80"
-            style={{ color: "var(--text-secondary)" }}
+            className="text-sm font-semibold py-2 px-4 rounded-full border shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5"
+            style={{ color: "var(--text-primary)", borderColor: "var(--gw-border)", background: "white" }}
           >
             Try it
           </a>
@@ -173,49 +180,50 @@ export default function HomePage() {
       </motion.nav>
 
       {/* Hero Section */}
-      <main className="max-w-5xl mx-auto px-8 pt-20 pb-28">
+      <main className="relative z-10 max-w-6xl mx-auto px-8 pt-20 pb-32">
         <motion.div
           initial="hidden"
           animate="visible"
           variants={staggerContainer}
           className="text-center mb-20"
         >
+          <motion.div variants={fadeInUp} custom={0} className="mb-8 flex justify-center">
+            {/* Removed GenAI Genesis Hackathon badge */}
+          </motion.div>
           <motion.h1
             variants={fadeInUp}
-            custom={0}
-            className="font-display text-5xl md:text-7xl font-extrabold tracking-tight mb-6"
+            custom={1}
+            className="font-display text-5xl md:text-7xl lg:text-[80px] font-black tracking-tighter mb-8 leading-[1.1]"
             style={{ color: "var(--text-primary)" }}
           >
-            We read the{" "}
-            <span className="relative inline-block">
+            We read the <br className="hidden md:block" />
+            <span className="relative inline-block text-(--brand-dark) min-w-[320px] text-center md:text-left">
               <span
-                style={{
-                  fontFamily: settled
-                    ? "var(--font-syne), sans-serif"
-                    : CYCLING_FONTS[currentFontIdx],
-                  transition: settled ? "font-family 0.3s ease" : "none",
-                  color: "var(--text-primary)",
+                className="inline-block"
+                style={{ 
+                  color: "#111111",
+                  fontFamily: CYCLING_FONTS[currentFontIdx],
+                  transition: "font-family 0.1s ease"
                 }}
               >
                 fine print.
               </span>
-              {/* Green underline that appears after settling */}
+              {/* Animated underline that appears after settling */}
               <span
-                className="absolute left-0 bottom-0 h-[4px] rounded-full"
+                className="absolute left-0 bottom-1 md:bottom-2 h-[6px] md:h-[8px] rounded-full"
                 style={{
                   background: "var(--brand)",
                   width: showUnderline ? "100%" : "0%",
-                  transition: "width 0.6s cubic-bezier(0.22, 1, 0.36, 1)",
-                  bottom: "-4px",
+                  transition: "width 0.8s cubic-bezier(0.22, 1, 0.36, 1)",
                 }}
               />
             </span>
           </motion.h1>
           <motion.p
             variants={fadeInUp}
-            custom={1}
-            className="text-lg md:text-xl max-w-2xl mx-auto leading-relaxed mb-10"
-            style={{ color: "var(--text-secondary)" }}
+            custom={2}
+            className="text-lg md:text-xl max-w-3xl font-display mx-auto leading-relaxed mb-12 font-medium"
+            style={{ color: "var(--text-secondary)", fontWeight: 500 }}
           >
             AI-powered audit of corporate sustainability claims. Every claim
             extracted, every source cross-referenced, every verdict cited.
@@ -224,24 +232,20 @@ export default function HomePage() {
           {/* CTA Badges */}
           <motion.div
             variants={fadeInUp}
-            custom={2}
-            className="flex items-center justify-center gap-4 mb-12 flex-wrap"
+            custom={3}
+            className="flex items-center justify-center gap-4 flex-wrap"
           >
             {[
-              { icon: <Zap size={14} />, text: "Under 60s analysis" },
-              { icon: <Eye size={14} />, text: "Real evidence, not AI fiction" },
-              { icon: <Sparkles size={14} />, text: "Powered by GPT-5" },
+              { icon: <Zap size={16} />, text: "Quick analysis" },
+              { icon: <Eye size={16} />, text: "Real evidence" },
+              { icon: <Shield size={16} />, text: "Unbiased scoring" },
             ].map((badge, i) => (
               <span
                 key={i}
-                className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold"
-                style={{
-                  background: "var(--brand-subtle)",
-                  color: "var(--brand-dark)",
-                  border: "1px solid var(--brand)",
-                }}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold shadow-sm bg-white/60 backdrop-blur-md border border-white/50"
+                style={{ color: "var(--text-primary)" }}
               >
-                {badge.icon}
+                <span style={{ color: "var(--brand-dark)" }}>{badge.icon}</span>
                 {badge.text}
               </span>
             ))}
@@ -254,61 +258,64 @@ export default function HomePage() {
           initial={{ opacity: 0, y: 40 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6, duration: 0.7 }}
-          className="max-w-xl mx-auto mb-8"
+          className="max-w-3xl mx-auto mb-20"
         >
           <div
             {...getRootProps()}
-            className={`upload-zone cursor-pointer p-12 text-center transition-all ${isDragActive ? "active" : ""
-              } ${uploading ? "opacity-60 pointer-events-none" : ""}`}
+            className={`upload-zone relative overflow-hidden cursor-pointer p-14 text-center transition-all bg-white/60 backdrop-blur-xl border-2 hover:border-[#1E4D3B] hover:shadow-2xl rounded-3xl ${isDragActive ? "border-[#1E4D3B] bg-[#E8F3EE] shadow-lg scale-[1.02]" : "border-white shadow-md"
+              } ${uploading ? "opacity-70 pointer-events-none scale-[0.98]" : ""}`}
           >
             <input {...getInputProps()} />
-            <div className="flex flex-col items-center gap-4">
+            <div className="relative z-10 flex flex-col items-center gap-5">
               {uploading ? (
                 <>
                   <motion.div
-                    animate={{ scale: [1, 1.1, 1] }}
-                    transition={{ repeat: Infinity, duration: 1.5 }}
-                    className="w-12 h-12 rounded-full flex items-center justify-center"
+                    animate={{ scale: [1, 1.1, 1], rotate: [0, 5, -5, 0] }}
+                    transition={{ repeat: Infinity, duration: 2 }}
+                    className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-inner"
                     style={{ background: "var(--brand-subtle)" }}
                   >
                     <FileText
-                      size={24}
-                      style={{ color: "var(--brand-dark)" }}
-                    />
-                  </motion.div>
-                  <p
-                    className="font-medium"
-                    style={{ color: "var(--text-primary)" }}
-                  >
-                    Uploading...
-                  </p>
-                </>
-              ) : (
-                <>
-                  <motion.div
-                    whileHover={{ scale: 1.05 }}
-                    className="w-12 h-12 rounded-full flex items-center justify-center"
-                    style={{ background: "var(--brand-subtle)" }}
-                  >
-                    <Upload
-                      size={24}
+                      size={32}
                       style={{ color: "var(--brand-dark)" }}
                     />
                   </motion.div>
                   <div>
                     <p
-                      className="font-medium mb-1"
+                      className="text-xl font-bold tracking-tight mb-1"
+                      style={{ color: "var(--text-primary)" }}
+                    >
+                      Analyzing Report...
+                    </p>
+                    <p className="text-sm font-medium" style={{ color: "var(--text-muted)" }}>This usually takes under 60 seconds.</p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <motion.div
+                    whileHover={{ scale: 1.1, rotate: 5 }}
+                    className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-sm"
+                    style={{ background: "var(--brand-subtle)" }}
+                  >
+                    <Upload
+                      size={32}
+                      style={{ color: "var(--brand-dark)" }}
+                    />
+                  </motion.div>
+                  <div>
+                    <p
+                      className="text-2xl font-bold tracking-tight mb-2"
                       style={{ color: "var(--text-primary)" }}
                     >
                       {isDragActive
-                        ? "Drop your PDF here"
-                        : "Drag & drop a sustainability report"}
+                        ? "Drop your PDF here to begin"
+                        : "Upload a sustainability report"}
                     </p>
                     <p
-                      className="text-sm"
+                      className="text-base font-medium"
                       style={{ color: "var(--text-muted)" }}
                     >
-                      PDF up to 50MB · ESG, CSR, or sustainability report
+                      Drag & drop any ESG or CSR PDF up to 50MB
                     </p>
                   </div>
                 </>
@@ -317,250 +324,232 @@ export default function HomePage() {
           </div>
 
           {error && (
-            <motion.p
-              initial={{ opacity: 0, y: -5 }}
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="text-sm mt-3 text-center"
-              style={{ color: "var(--score-false)" }}
+              className="mt-6 p-4 rounded-xl flex items-center justify-center gap-2 bg-red-50 text-red-700 border border-red-100 shadow-sm"
             >
-              {error}
-            </motion.p>
+              <AlertTriangle size={18} />
+              <p className="text-sm font-semibold">{error}</p>
+            </motion.div>
           )}
 
-          <div className="text-center mt-6">
+          <div className="text-center mt-10">
             <Button
               onClick={() => router.push("/report/demo")}
-              variant="ghost"
-              className="text-sm font-medium gap-1.5 hover:scale-[1.02] transition-transform"
-              style={{ color: "var(--brand-dark)" }}
+              size="lg"
+              className="font-bold text-base gap-2 px-8 h-12 shadow-lg hover:shadow-xl transition-all hover:-translate-y-0.5 rounded-full"
+              style={{ background: "var(--text-primary)", color: "white" }}
             >
-              Try a demo report
-              <ArrowRight size={14} />
+              View Example Analysis
+              <ChevronRight size={18} />
             </Button>
           </div>
         </motion.div>
 
-        {/* How It Works */}
-        <motion.section
-          id="how-it-works"
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: "-100px" }}
-          variants={staggerContainer}
-          className="mt-36 mb-20"
-        >
-          <motion.h2
-            variants={fadeInUp}
-            custom={0}
-            className="font-display text-3xl font-bold text-center mb-4"
-            style={{ color: "var(--text-primary)" }}
+        {/* How It Works & Preview Layout */}
+        <div id="how-it-works" className="grid lg:grid-cols-2 gap-16 lg:gap-24 items-center mt-40 mb-20">
+          {/* Left Side: How it works text */}
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-100px" }}
+            variants={staggerContainer}
+            className="space-y-12"
           >
-            How it works
-          </motion.h2>
-          <motion.p
-            variants={fadeInUp}
-            custom={1}
-            className="text-center text-sm mb-14 max-w-lg mx-auto"
-            style={{ color: "var(--text-muted)" }}
-          >
-            Three steps. No sign-up required. Your report stays private.
-          </motion.p>
-          <div className="grid md:grid-cols-3 gap-6">
-            {[
-              {
-                icon: <Search size={22} />,
-                title: "Extract Claims",
-                desc: "AI reads your report and identifies every explicit sustainability claim — emissions, targets, and commitments.",
-                step: "01",
-              },
-              {
-                icon: <Shield size={22} />,
-                title: "Cross-Reference",
-                desc: "Each claim is verified against real news articles, regulatory filings, and government databases via Tavily.",
-                step: "02",
-              },
-              {
-                icon: <BarChart3 size={22} />,
-                title: "Grade & Report",
-                desc: "Every claim gets a credibility score with cited evidence, AI reasoning, and an overall greenwash rating.",
-                step: "03",
-              },
-            ].map((step, i) => (
-              <motion.div
-                key={i}
+            <div>
+              <motion.h2
                 variants={fadeInUp}
-                custom={i + 2}
-                whileHover={{ y: -4, boxShadow: "0 12px 40px rgba(0,0,0,0.06)" }}
-                className="p-7 rounded-2xl text-center transition-all cursor-default"
-                style={{
-                  background: "var(--bg-surface)",
-                  border: "1px solid var(--gw-border)",
-                }}
+                className="font-display text-4xl md:text-5xl font-black mb-6 tracking-tight leading-[1.1]"
+                style={{ color: "var(--text-primary)" }}
               >
-                <div className="flex items-center justify-center gap-3 mb-4">
-                  <span
-                    className="text-xs font-mono-gw font-bold px-2 py-0.5 rounded-full"
-                    style={{ background: "var(--brand-subtle)", color: "var(--brand-dark)" }}
-                  >
-                    {step.step}
-                  </span>
-                </div>
-                <div
-                  className="w-11 h-11 rounded-xl flex items-center justify-center mx-auto mb-4"
-                  style={{
-                    background: "var(--brand-subtle)",
-                    color: "var(--brand-dark)",
-                  }}
-                >
-                  {step.icon}
-                </div>
-                <h3
-                  className="font-display font-bold text-base mb-2"
-                  style={{ color: "var(--text-primary)" }}
-                >
-                  {step.title}
-                </h3>
-                <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-                  {step.desc}
-                </p>
-              </motion.div>
-            ))}
-          </div>
-        </motion.section>
-
-        {/* Preview Card */}
-        <motion.section
-          initial={{ opacity: 0, y: 40 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-80px" }}
-          transition={{ duration: 0.7 }}
-          className="max-w-2xl mx-auto"
-        >
-          <p
-            className="text-center text-xs font-mono-gw font-bold uppercase tracking-widest mb-4"
-            style={{ color: "var(--text-muted)" }}
-          >
-            Example Analysis
-          </p>
-          <div
-            className="rounded-2xl overflow-hidden transition-shadow hover:shadow-lg"
-            style={{
-              background: "var(--bg-surface)",
-              border: "1px solid var(--gw-border)",
-            }}
-          >
-            <div
-              className="px-6 py-4 flex items-center justify-between"
-              style={{ borderBottom: "1px solid var(--gw-border)" }}
-            >
-              <div>
-                <p
-                  className="font-display font-bold text-sm"
-                  style={{ color: "var(--text-primary)" }}
-                >
-                  Acme Corp — 2024 ESG Report
-                </p>
-                <p
-                  className="text-xs font-mono-gw"
-                  style={{ color: "var(--text-muted)" }}
-                >
-                  Sample analysis
-                </p>
-              </div>
-              <div
-                className="text-xs font-mono-gw"
+                Trust, but <br/><span style={{ color: "var(--brand-dark)" }}>verify.</span>
+              </motion.h2>
+              <motion.p
+                variants={fadeInUp}
+                className="text-lg leading-relaxed font-medium"
                 style={{ color: "var(--text-secondary)" }}
               >
-                47 claims · 18 ✓ · 21 ~ · 8 ✗
-              </div>
+                GreenWash reads between the lines of massive environmental reports so you don't have to. We turn marketing fluff into hard facts.
+              </motion.p>
             </div>
-            <div className="px-6 py-4 space-y-3">
+
+            <div className="space-y-8">
               {[
                 {
-                  text: "\"Reduced Scope 1 emissions by 30% since 2019\"",
-                  verdict: "contradicted",
-                  score: 22,
-                  icon: <XCircle size={14} />,
-                  color: "var(--score-false)",
-                  bg: "var(--score-false-bg)",
+                  icon: <Search size={24} />,
+                  title: "1. Extract Claims",
+                  desc: "Our AI model identifies targeted sustainability claims — emissions, pledges, and raw data across labor and environment.",
                 },
                 {
-                  text: "\"100% of electricity from renewable sources\"",
-                  verdict: "supported",
-                  score: 84,
-                  icon: <CheckCircle2 size={14} />,
-                  color: "var(--score-true)",
-                  bg: "var(--score-true-bg)",
+                  icon: <Shield size={24} />,
+                  title: "2. Cross-Reference",
+                  desc: "Every claim is actively fact-checked against government databases, independent registries, and real-time news sources.",
                 },
                 {
-                  text: "\"Zero waste-to-landfill across all facilities\"",
-                  verdict: "unverified",
-                  score: null,
-                  icon: <AlertTriangle size={14} />,
-                  color: "var(--score-unknown)",
-                  bg: "var(--score-unknown-bg)",
+                  icon: <BarChart3 size={24} />,
+                  title: "3. Grade & Analyze",
+                  desc: "We assign a rigorous credibility score based on the strength of the evidence, highlighting contradictions and supported facts.",
                 },
-              ].map((claim, i) => (
+              ].map((step, i) => (
                 <motion.div
                   key={i}
-                  initial={{ opacity: 0, x: -10 }}
-                  whileInView={{ opacity: 1, x: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: i * 0.1 + 0.3 }}
-                  className="flex items-center justify-between py-2"
+                  variants={fadeInUp}
+                  className="flex gap-6"
                 >
-                  <div className="flex-1 min-w-0 mr-4">
-                    <p
-                      className="text-sm font-mono-gw truncate"
+                  <div
+                    className="w-14 h-14 shrink-0 rounded-2xl flex items-center justify-center shadow-md border border-black/5"
+                    style={{ background: "white", color: "var(--brand-dark)" }}
+                  >
+                    {step.icon}
+                  </div>
+                  <div className="pt-1">
+                    <h3
+                      className="font-display font-extrabold text-xl mb-2"
                       style={{ color: "var(--text-primary)" }}
                     >
-                      {claim.text}
+                      {step.title}
+                    </h3>
+                    <p className="text-base leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                      {step.desc}
                     </p>
-                    <div className="credibility-meter mt-2 w-48">
-                      <div
-                        className="credibility-meter-fill"
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+
+          {/* Right Side: Premium Preview Card */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, x: 20 }}
+            whileInView={{ opacity: 1, scale: 1, x: 0 }}
+            viewport={{ once: true, margin: "-50px" }}
+            transition={{ duration: 0.8, type: "spring", bounce: 0.4 }}
+            className="relative lg:h-full lg:flex lg:items-center"
+          >
+            <div className="absolute inset-x-0 inset-y-10 bg-gradient-to-tr from-[#A5D6A7]/40 to-transparent blur-[80px] rounded-[3rem] -z-10" />
+            
+            <div
+              className="rounded-3xl overflow-hidden bg-white/80 backdrop-blur-2xl shadow-2xl border border-white"
+            >
+              <div
+                className="px-8 py-6 flex items-center justify-between bg-white/60 backdrop-blur-xl"
+                style={{ borderBottom: "1px solid var(--gw-border)" }}
+              >
+                <div>
+                  <p
+                    className="font-display font-extrabold text-xl mb-1"
+                    style={{ color: "var(--text-primary)" }}
+                  >
+                    PetroGreen Energy Corp
+                  </p>
+                  <p
+                    className="text-xs font-mono-gw uppercase tracking-widest font-bold"
+                    style={{ color: "var(--text-muted)" }}
+                  >
+                    2024 ESG Report
+                  </p>
+                </div>
+                <div
+                  className="flex flex-col items-end"
+                >
+                  <span className="text-xs font-bold text-(--text-muted) mb-1 uppercase tracking-wider">Overall Score</span>
+                  <span className="text-2xl font-black text-[#8b0000]">34%</span>
+                </div>
+              </div>
+              
+              <div className="px-8 py-6 space-y-4">
+                <p className="text-xs font-bold uppercase tracking-widest text-(--text-muted) mb-6">Key Claims Found</p>
+                {[
+                  {
+                    text: "Reduced Scope 1 emissions by 30% since 2019",
+                    verdict: "contradicted",
+                    score: 22,
+                    icon: <XCircle size={16} />,
+                    color: "var(--score-false)",
+                    bg: "var(--score-false-bg)",
+                  },
+                  {
+                    text: "Invested $500 million in carbon capture tech",
+                    verdict: "supported",
+                    score: 84,
+                    icon: <CheckCircle2 size={16} />,
+                    color: "var(--score-true)",
+                    bg: "var(--score-true-bg)",
+                  },
+                  {
+                    text: "Achieved zero fatalities across all operations",
+                    verdict: "contradicted",
+                    score: 15,
+                    icon: <XCircle size={16} />,
+                    color: "var(--score-false)",
+                    bg: "var(--score-false-bg)",
+                  },
+                  {
+                    text: "Top-tier supply chain audits for compliance",
+                    verdict: "unverified",
+                    score: null,
+                    icon: <AlertTriangle size={16} />,
+                    color: "var(--score-unknown)",
+                    bg: "var(--score-unknown-bg)",
+                  },
+                ].map((claim, i) => (
+                  <div
+                    key={i}
+                    className="flex flex-col gap-3 py-4 px-5 rounded-2xl transition-colors bg-white/50 border border-black/5 shadow-sm hover:bg-white hover:shadow-md"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <p
+                        className="text-sm font-semibold leading-snug flex-1"
+                        style={{ color: "var(--text-primary)" }}
+                      >
+                        "{claim.text}"
+                      </p>
+                      <span
+                        className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider px-2.5 py-1.5 rounded-md whitespace-nowrap shadow-sm"
                         style={{
-                          width: claim.score !== null ? `${claim.score}%` : "0%",
+                          background: claim.bg,
+                          color: claim.color,
+                        }}
+                      >
+                        {claim.icon}
+                        {claim.verdict === "contradicted"
+                          ? `FALSE`
+                          : claim.verdict === "supported"
+                            ? `TRUE`
+                            : "UNVERIFIED"}
+                      </span>
+                    </div>
+                    <div className="h-1.5 w-full bg-black/5 rounded-full overflow-hidden">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        whileInView={{ width: claim.score !== null ? `${claim.score}%` : "0%" }}
+                        viewport={{ once: true }}
+                        transition={{ duration: 1.2, delay: i * 0.15 + 0.4, ease: "easeOut" }}
+                        className="h-full rounded-full bg-gradient-to-r"
+                        style={{
                           background: claim.color,
                         }}
                       />
                     </div>
                   </div>
-                  <span
-                    className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full whitespace-nowrap"
-                    style={{
-                      background: claim.bg,
-                      color: claim.color,
-                    }}
-                  >
-                    {claim.icon}
-                    {claim.verdict === "contradicted"
-                      ? `✗ ${claim.score}/100`
-                      : claim.verdict === "supported"
-                        ? `✓ ${claim.score}/100`
-                        : "— Unverified"}
-                  </span>
-                </motion.div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
-        </motion.section>
+          </motion.div>
+        </div>
       </main>
 
       {/* Footer */}
-      <motion.footer
-        initial={{ opacity: 0 }}
-        whileInView={{ opacity: 1 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.5 }}
-        className="py-10 px-8 text-center text-xs"
+      <footer
+        className="relative z-10 py-10 px-8 text-center text-sm font-semibold bg-white/40 backdrop-blur-xl"
         style={{
           color: "var(--text-muted)",
           borderTop: "1px solid var(--gw-border)",
         }}
       >
-        Built for GenAI Genesis Hackathon · GreenWash © 2026
-      </motion.footer>
+        GreenWash © 2026
+      </footer>
     </div>
   );
 }
