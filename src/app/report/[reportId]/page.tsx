@@ -653,12 +653,10 @@ export default function ReportPage({ params }: { params: Promise<{ reportId: str
                     <ClaimsAndDocumentView
                         pdfUrl={report.pdf_url || ""}
                         claims={claims}
-                        evidence={evidence}
                         verdictFilter={verdictFilter}
                         categoryFilter={categoryFilter}
                         selectedClaimId={selectedClaimId}
                         setSelectedClaimId={setSelectedClaimId}
-                        expandedClaimId={expandedClaimId}
                         setExpandedClaimId={setExpandedClaimId}
                         claimRefs={claimRefs}
                         setViewMode={setViewMode}

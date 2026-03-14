@@ -8,7 +8,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Upload,
   FileText,
-  ArrowRight,
   Shield,
   Search,
   BarChart3,
