@@ -5,17 +5,16 @@ const nextConfig: NextConfig = {
   reactCompiler: true,
   serverExternalPackages: ["pdf-parse"],
   webpack: (config) => {
-    config.resolve.alias.canvas = false;
+    // Tell Webpack to ignore canvas — only needed for pdfjs visual rendering in Node
+    // which we don't use (we use it browser-side only)
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      canvas: false,
+    };
     return config;
   },
-  experimental: {
-    // @ts-ignore - 'turbo' is not yet in the stable NextConfig type for this version
-    turbo: {
-      resolveAlias: {
-        canvas: "./empty-module.js",
-      },
-    },
-  },
+  // @ts-ignore - Silence Next.js 16 Turbopack warning
+  turbopack: {},
 };
 
 export default nextConfig;

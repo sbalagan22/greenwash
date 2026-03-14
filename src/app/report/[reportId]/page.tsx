@@ -9,10 +9,12 @@ import {
 } from "lucide-react";
 import React from "react";
 
-// @react-pdf-viewer imports
-import { Worker, Viewer } from '@react-pdf-viewer/core';
-import '@react-pdf-viewer/core/lib/styles/index.css';
-import '@react-pdf-viewer/default-layout/lib/styles/index.css';
+import dynamic from "next/dynamic";
+
+const PDFViewer = dynamic(
+    () => import("@/components/PDFViewer"),
+    { ssr: false }
+);
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -189,9 +191,7 @@ function ClaimsAndDocumentView({
 
             <div className="flex-1 h-full overflow-y-auto" style={{ background: '#e4e4e4' }}>
                 {pdfUrl ? (
-                    <Worker workerUrl={`https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js`}>
-                        <Viewer fileUrl={pdfUrl} />
-                    </Worker>
+                    <PDFViewer fileUrl={pdfUrl} />
                 ) : (
                     <div className="flex items-center justify-center h-full text-sm text-gray-500">
                         PDF not available.
