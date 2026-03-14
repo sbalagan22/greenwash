@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
@@ -48,82 +49,186 @@
 }
 
 :root {
+  /* GreenWash Design System */
+  --bg-base: #FFFFFF;
+  --bg-surface: #F7F8F7;
+  --bg-elevated: #EFEFEF;
+  --gw-border: #E2E5E2;
+  --text-primary: #111111;
+  --text-secondary: #555555;
+  --text-muted: #AAAAAA;
+  --brand: #85C391;
+  --brand-dark: #5A9E67;
+  --brand-subtle: #EAF5EC;
+
+  /* Verdict / Score Colors */
+  --score-true: #85C391;
+  --score-true-bg: #EAF5EC;
+  --score-partial: #E8B84B;
+  --score-partial-bg: #FDF6E3;
+  --score-false: #E07070;
+  --score-false-bg: #FDECEA;
+  --score-unknown: #9B9BB5;
+  --score-unknown-bg: #F3F3F7;
+
+  /* Component tokens */
+  --gw-radius-sm: 6px;
+  --gw-radius-md: 10px;
+  --gw-radius-lg: 16px;
+  --gw-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  --gw-transition: 150ms ease;
+
+  /* shadcn overrides */
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
+  --card: oklch(0.98 0.002 150);
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
+  --primary: oklch(0.72 0.12 150);
+  --primary-foreground: oklch(0.145 0 0);
+  --secondary: oklch(0.97 0.002 150);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.45 0 0);
+  --accent: oklch(0.93 0.02 150);
   --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.809 0.105 251.813);
-  --chart-2: oklch(0.623 0.214 259.815);
-  --chart-3: oklch(0.546 0.245 262.881);
-  --chart-4: oklch(0.488 0.243 264.376);
-  --chart-5: oklch(0.424 0.199 265.638);
+  --destructive: oklch(0.65 0.18 25);
+  --border: oklch(0.91 0.005 150);
+  --input: oklch(0.91 0.005 150);
+  --ring: oklch(0.72 0.12 150);
+  --chart-1: oklch(0.72 0.12 150);
+  --chart-2: oklch(0.75 0.12 85);
+  --chart-3: oklch(0.65 0.18 25);
+  --chart-4: oklch(0.68 0.08 280);
+  --chart-5: oklch(0.55 0.15 260);
   --radius: 0.625rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.72 0.12 150);
+  --sidebar-primary-foreground: oklch(0.145 0 0);
   --sidebar-accent: oklch(0.97 0 0);
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-}
-
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.809 0.105 251.813);
-  --chart-2: oklch(0.623 0.214 259.815);
-  --chart-3: oklch(0.546 0.245 262.881);
-  --chart-4: oklch(0.488 0.243 264.376);
-  --chart-5: oklch(0.424 0.199 265.638);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --sidebar-ring: oklch(0.72 0.12 150);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-dm-sans), sans-serif;
   }
+
   html {
-    @apply font-sans;
+    @apply scroll-smooth;
   }
+}
+
+/* Font utilities */
+.font-display {
+  font-family: var(--font-syne), sans-serif;
+}
+
+.font-body {
+  font-family: var(--font-dm-sans), sans-serif;
+}
+
+.font-mono-gw {
+  font-family: var(--font-dm-mono), monospace;
+}
+
+/* Credibility meter bar */
+.credibility-meter {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--bg-elevated);
+  overflow: hidden;
+}
+
+.credibility-meter-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width var(--gw-transition);
+}
+
+/* Verdict colors */
+.verdict-supported {
+  color: var(--score-true);
+}
+
+.verdict-supported-bg {
+  background-color: var(--score-true-bg);
+}
+
+.verdict-partial {
+  color: var(--score-partial);
+}
+
+.verdict-partial-bg {
+  background-color: var(--score-partial-bg);
+}
+
+.verdict-contradicted {
+  color: var(--score-false);
+}
+
+.verdict-contradicted-bg {
+  background-color: var(--score-false-bg);
+}
+
+.verdict-unverified {
+  color: var(--score-unknown);
+}
+
+.verdict-unverified-bg {
+  background-color: var(--score-unknown-bg);
+}
+
+/* Pulse animation for active processing step */
+@keyframes gentle-pulse {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-gentle-pulse {
+  animation: gentle-pulse 2s ease-in-out infinite;
+}
+
+/* Upload zone hover */
+.upload-zone {
+  border: 2px dashed var(--gw-border);
+  border-radius: var(--gw-radius-lg);
+  background: var(--bg-surface);
+  transition: all var(--gw-transition);
+}
+
+.upload-zone:hover,
+.upload-zone.active {
+  border-color: var(--brand);
+  background: var(--brand-subtle);
+}
+
+/* Claim card selected state */
+.claim-card-selected {
+  background: var(--brand-subtle);
+  border-left: 2px solid var(--brand);
+}
+
+/* Evidence blockquote */
+.evidence-blockquote {
+  background: var(--bg-surface);
+  border-left: 3px solid var(--brand);
+  padding: 1rem 1.25rem;
+  border-radius: 0 var(--gw-radius-md) var(--gw-radius-md) 0;
 }
