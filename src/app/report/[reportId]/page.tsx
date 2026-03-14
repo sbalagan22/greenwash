@@ -3,15 +3,14 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import {
-    CheckCircle2, XCircle, AlertTriangle, MinusCircle, ExternalLink,
-    ChevronDown, ChevronUp, Filter, ArrowLeft, Link2, Copy, FileText, ListChecks,
-    Flame, Package, Droplets, Users, Sparkles
+    CheckCircle2, AlertTriangle, ExternalLink,
+    Filter, ArrowLeft, Link2, FileText, ListChecks,
+    Flame, Package, Droplets, Users
 } from "lucide-react";
-import { motion } from "framer-motion";
 import React from "react";
 
+// @react-pdf-viewer imports
 import { Worker, Viewer } from '@react-pdf-viewer/core';
-import { defaultLayoutPlugin } from '@react-pdf-viewer/default-layout';
 import '@react-pdf-viewer/core/lib/styles/index.css';
 import '@react-pdf-viewer/default-layout/lib/styles/index.css';
 
@@ -91,7 +90,8 @@ function getScoreBg(score: number | null): string {
   return bgs[verdict];
 }
 
-const CATEGORIES = ["carbon", "sourcing", "water", "labor"];
+// unused but kept for possible future dynamic categories
+// const CATEGORIES = ["carbon", "sourcing", "water", "labor"];
 
 const categoryConfig: Record<string, { label: string, icon: React.ElementType, color: string, bg: string }> = {
   carbon: { label: 'Carbon', icon: Flame, color: '#E07070', bg: '#FDECEA' },
@@ -106,24 +106,20 @@ const categoryConfig: Record<string, { label: string, icon: React.ElementType, c
 function ClaimsAndDocumentView({
     pdfUrl,
     claims,
-    evidence,
     verdictFilter,
     categoryFilter,
     selectedClaimId,
     setSelectedClaimId,
-    expandedClaimId,
     setExpandedClaimId,
     claimRefs,
     setViewMode
 }: {
     pdfUrl: string;
     claims: Claim[];
-    evidence: Record<string, Evidence[]>;
     verdictFilter: VerdictFilter;
     categoryFilter: string;
     selectedClaimId: string | null;
     setSelectedClaimId: (id: string | null) => void;
-    expandedClaimId: string | null;
     setExpandedClaimId: (id: string | null) => void;
     claimRefs: React.MutableRefObject<Record<string, HTMLDivElement | null>>;
     setViewMode: (mode: ViewMode) => void;
@@ -221,7 +217,7 @@ function OverviewView({ report, claims }: { report: Report; claims: Claim[] }) {
     }
 
     const scoreColor = getScoreColor(report.overall_score);
-    const categoryScores = report.category_scores || {};
+    // const categoryScores = report.category_scores || {};
 
     return (
         <ScrollArea className="h-full">
@@ -436,9 +432,9 @@ export default function ReportPage({ params }: { params: Promise<{ reportId: str
                 setClaims(claimsData as Claim[]);
                 setEvidence(evsByClaim);
 
-            } catch (err: any) {
+            } catch (err: unknown) {
                 console.error("Error loading report:", err);
-                setError(err.message || "Failed to load report data");
+                setError((err as Error).message || "Failed to load report data");
             } finally {
                 setLoading(false);
             }
