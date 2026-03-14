@@ -419,7 +419,7 @@ export default function HomePage() {
                 className="text-lg leading-relaxed font-medium"
                 style={{ color: "var(--text-secondary)" }}
               >
-                GreenWash reads between the lines of massive environmental reports so you don't have to. We turn marketing fluff into hard facts.
+                GreenWash reads between the lines of massive environmental reports so you don&apos;t have to. We turn marketing fluff into hard facts.
               </motion.p>
             </div>
 
@@ -552,7 +552,7 @@ export default function HomePage() {
                         className="text-sm font-semibold leading-snug flex-1"
                         style={{ color: "var(--text-primary)" }}
                       >
-                        "{claim.text}"
+                        &quot;{claim.text}&quot;
                       </p>
                       <span
                         className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider px-2.5 py-1.5 rounded-md whitespace-nowrap shadow-sm"

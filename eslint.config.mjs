@@ -12,6 +12,12 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Local development and test files:
+    "convert-loader.js",
+    "convert.js",
+    "patch-page.js",
+    "test-*.js",
+    "test_report.pdf"
   ]),
 ]);
 

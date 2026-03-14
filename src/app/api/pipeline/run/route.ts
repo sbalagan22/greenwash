@@ -367,8 +367,9 @@ async function verifyClaims(
 
     if (!claims || claims.length === 0) return;
 
+    interface ClaimRow { id: string; claim_text: string; entities: any; category: string }
     // Cap to 25 searchable claims to control credits
-    const searchableClaims = (claims as any[])
+    const searchableClaims = (claims as unknown as ClaimRow[])
         .filter(c => c.claim_text.length > 40)
         .slice(0, 25)
 

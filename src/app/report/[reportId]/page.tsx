@@ -93,7 +93,7 @@ function getScoreBg(score: number | null): string {
 
 const CATEGORIES = ["carbon", "sourcing", "water", "labor"];
 
-const categoryConfig: Record<string, { label: string, icon: any, color: string, bg: string }> = {
+const categoryConfig: Record<string, { label: string, icon: React.ElementType, color: string, bg: string }> = {
   carbon: { label: 'Carbon', icon: Flame, color: '#E07070', bg: '#FDECEA' },
   sourcing: { label: 'Sourcing', icon: Package, color: '#F0A050', bg: '#FEF3E2' },
   water: { label: 'Water', icon: Droplets, color: '#85C0E0', bg: '#EAF3FB' },
@@ -413,8 +413,8 @@ export default function ReportPage({ params }: { params: Promise<{ reportId: str
 
                 if (claimsError) throw claimsError;
 
-                const claimIds = claimsData ? claimsData.map((c: any) => c.id) : [];
-                let evData: any[] = [];
+                const claimIds = claimsData ? (claimsData as Array<{ id: string }>).map((c) => c.id) : [];
+                let evData: Evidence[] = [];
                 
                 if (claimIds.length > 0) {
                     const { data: evList, error: evError } = await supabase
@@ -750,7 +750,7 @@ function ClaimsView({
                     <div className="max-w-3xl mx-auto">
                         <div className="mb-8">
                             <h2 className="text-2xl font-display font-medium text-gray-900 leading-relaxed">
-                                "{selectedClaim.claim_text}"
+                                &quot;{selectedClaim.claim_text}&quot;
                             </h2>
                         </div>
                         
