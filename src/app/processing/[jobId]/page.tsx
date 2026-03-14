@@ -27,6 +27,7 @@ const STEPS = [
     { key: "disambiguating", label: "Identifying entities" },
     { key: "verifying", label: "Cross-referencing evidence" },
     { key: "scoring", label: "Scoring claim credibility" },
+    { key: "analyzing", label: "Generating overall report" },
     { key: "complete", label: "Analysis complete" },
 ];
 

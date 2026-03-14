@@ -19,7 +19,7 @@ import {
     FileText,
     ListChecks,
 } from "lucide-react";
-import ReactMarkdown from 'react-markdown';
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -299,13 +299,18 @@ function OverviewView({ report }: { report: Report }) {
                 <div>
                     <h3 className="text-xl font-display font-bold mb-6 flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
                         <div className="w-2.5 h-2.5 rounded-full" style={{ background: "var(--brand-dark)" }} />
-                        Detailed Assessor Outline
+                        Why This Score?
                     </h3>
-                    <div
-                        className="prose prose-sm md:prose-base max-w-none leading-relaxed"
-                        style={{ color: "var(--text-secondary)" }}
-                    >
-                        <ReactMarkdown>{report.overall_analysis || 'No detailed analysis available.'}</ReactMarkdown>
+                    <div className="space-y-4">
+                        {(report.overall_analysis || 'No detailed analysis available.').split('\n\n').map((paragraph, i) => (
+                            <p
+                                key={i}
+                                className="text-[15px] leading-relaxed"
+                                style={{ color: "var(--text-secondary)" }}
+                            >
+                                {paragraph.trim()}
+                            </p>
+                        ))}
                     </div>
                 </div>
             </div>
@@ -639,7 +644,7 @@ export default function ReportPage() {
                     status: "complete",
                     created_at: new Date().toISOString(),
                     overall_score: 42,
-                    overall_analysis: "### Overall Credibility Assessment\n\nPetroGreen Energy Corp's 2024 sustainability report demonstrates a pattern of significant **greenwashing**, presenting aspirational goals and cherry-picked metrics while obscuring contradictory operational realities.\n\n### Key Inconsistencies\n\n- **Emissions Reduction Claims**: The company claims a 35% reduction in Scope 1 emissions. However, official government registries (NPRI) show a 14% *increase* in absolute emissions over the same period.\n- **Water Recycling**: Claimed 90% water recycling rates contradict regulatory filings, which show the actual rate is around 65% — below the industry average.\n- **Labor Safety**: Assertions of \"zero fatalities\" are directly contradicted by public health and safety records documenting two workplace fatalities at the company's facilities in 2024.\n\n### Verified Positive Actions\n\nDespite the overstatements, independent evidence does support the company's $480 million investment in carbon capture infrastructure (CCS) and its conservation agreements protecting ~14,800 hectares of boreal forest.\n\n### Conclusion\n\nThe report's credibility is severely undermined by verifiable contradictions in critical environmental and safety metrics. The score of 42% reflects that while some capital investments and conservation efforts are legitimate, the core operational claims are highly misleading.",
+                    overall_analysis: "PetroGreen Energy Corp's 2024 sustainability report demonstrates a pattern of significant greenwashing, presenting aspirational goals and cherry-picked metrics while obscuring contradictory operational realities.\n\nThe company claims a 35% reduction in Scope 1 emissions. However, official government registries (NPRI) show a 14% increase in absolute emissions over the same period. Claimed 90% water recycling rates contradict regulatory filings, which show the actual rate is around 65%, well below the industry average. Assertions of zero fatalities are directly contradicted by public health and safety records documenting two workplace fatalities at the company's facilities in 2024.\n\nDespite the overstatements, independent evidence does support the company's $480 million investment in carbon capture infrastructure (CCS) and its conservation agreements protecting approximately 14,800 hectares of boreal forest.\n\nThe report's credibility is severely undermined by verifiable contradictions in critical environmental and safety metrics. The score of 42% reflects that while some capital investments and conservation efforts are legitimate, the core operational claims are highly misleading.",
                 });
                 setClaims(DEMO_CLAIMS);
                 setEvidence(DEMO_EVIDENCE);
