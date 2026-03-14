@@ -34,6 +34,11 @@ yarn-error.log*
 *.md
 !README.md
 !PIPELINE.md
+greenwash-PRD.md
+greenwash-TASKS.md
+nextsteps.md
+optimization.md
+todo.md
 
 # Test files & scripts
 test-*
@@ -44,6 +49,12 @@ test_report.pdf
 convert-loader.js
 convert.js
 patch-page.js
+test-db.js
+test-large-upload.js
+test-pdf.js
+test-pdf2.js
+test-playwright.js
+test-upload.js
 
 # Env files
 .env*
