@@ -22,14 +22,17 @@ const syne = Syne({
 });
 
 export const metadata: Metadata = {
-  title: "GreenWash — AI-Powered Sustainability Claim Auditor",
+  title: "greenwash — AI-Powered Sustainability Claim Auditor",
   description:
-    "Upload any corporate sustainability report. GreenWash uses AI to extract claims, cross-reference them against public data, and grade their credibility.",
+    "Upload any corporate sustainability report. greenwash uses AI to extract claims, cross-reference them against public data, and grade their credibility.",
   openGraph: {
-    title: "GreenWash — We Read the Fine Print",
+    title: "greenwash — We Read the Fine Print",
     description:
       "AI-powered audit of corporate sustainability claims. Every claim extracted, every source cited.",
     type: "website",
+  },
+  icons: {
+    icon: "/greenwash_icon.png",
   },
 };
 

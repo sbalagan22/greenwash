@@ -1,9 +1,15 @@
-# GreenWash 🌿
+# greenwash 🌿
 > **ESG Evidence Verification Pipeline**
 
-GreenWash is a premium ESG (Environmental, Social, and Governance) analytics platform that uses AI and real-time web verification to audit sustainability claims in corporate reports. It moves beyond simple extraction by actively searching for independent evidence to validate or contradict corporate sustainability promises.
+<p align="center">
+  <img src="public/greenwash_logo_whitebg.png" alt="greenwash Logo" width="600" />
+</p>
 
-![GreenWash Homepage](public/screenshot.png) *(Note: Placeholder for actual screenshot)*
+greenwash is a premium ESG (Environmental, Social, and Governance) analytics platform that uses AI and real-time web verification to audit sustainability claims in corporate reports. It moves beyond simple extraction by actively searching for independent evidence to validate or contradict corporate sustainability promises.
+
+<p align="center">
+  <img src="public/greenwash_icon.png" alt="greenwash Icon" width="100" />
+</p>
 
 ## ✨ Features
 

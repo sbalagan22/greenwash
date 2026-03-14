@@ -1,7 +1,7 @@
-# GreenWash Pipeline Deep Dive 🌊
+# greenwash Pipeline Deep Dive 🌊
 > **Technical Documentation for the ESG Credibility Engine**
 
-The GreenWash pipeline is a multi-stage distributed process designed to transform raw PDF sustainability reports into a verified credibility assessment. It leverages advanced LLM reasoning and real-time search capabilities.
+The greenwash pipeline is a multi-stage distributed process designed to transform raw PDF sustainability reports into a verified credibility assessment. It leverages advanced LLM reasoning and real-time search capabilities.
 
 ## 🏁 Pipeline Architecture
 

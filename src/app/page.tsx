@@ -190,8 +190,8 @@ export default function HomePage() {
       >
         <div className="flex items-center gap-2">
           <Image
-            src="/icon.png"
-            alt="GreenWash"
+            src="/greenwash_icon.png"
+            alt="greenwash"
             width={32}
             height={32}
             className="drop-shadow-sm"
