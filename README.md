@@ -1,36 +1,86 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# GreenWash 🌿
+> **ESG Evidence Verification Pipeline**
 
-## Getting Started
+GreenWash is a premium ESG (Environmental, Social, and Governance) analytics platform that uses AI and real-time web verification to audit sustainability claims in corporate reports. It moves beyond simple extraction by actively searching for independent evidence to validate or contradict corporate sustainability promises.
 
-First, run the development server:
+![GreenWash Homepage](public/screenshot.png) *(Note: Placeholder for actual screenshot)*
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## ✨ Features
+
+- **Automated Claim Extraction**: Parses long PDF sustainability reports to find specific, verifiable ESG claims.
+- **Real-time Verification**: Uses the Tavily search engine to find independent evidence across the web for every claim.
+- **Mathematical Scoring**: Computes a strict credibility score (0-100) based on the weight of supporting and contradicting evidence.
+- **Category Dashboards**: Visualizes performance across Carbon, Sourcing, Water, and Labor.
+- **Qualitative Analysis**: AI-generated reports that explain the "why" behind the scores, citing specific sources.
+- **Premium UI**: Modern, glassmorphic design built with Next.js, Framer Motion, and Tailwind CSS.
+
+## 🛠️ Tech Stack
+
+- **Frontend**: Next.js 15+, React 19, Tailwind CSS, Framer Motion, Lucide React
+- **Backend**: Next.js API Routes (App Router)
+- **Database/Storage**: Supabase (PostgreSQL, Storage buckets)
+- **AI/LLM**: GPT-4o-mini (Extraction, Relevancy, Scoring, Analysis)
+- **Search Engine**: Tavily API (Targeted ESG verification)
+- **PDF Processing**: `pdf-parse`, `pdfjs-dist`
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- Node.js 18+
+- A Supabase project
+- OpenAI API Key
+- Tavily API Key
+
+### Environment Variables
+
+Create a `.env` file in the root directory:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+
+OPENAI_API_KEY=your_openai_api_key
+TAVILY_API_KEY=your_tavily_api_key
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Installation
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/yourusername/greenwash.git
+   cd greenwash
+   ```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+2. **Install dependencies**:
+   ```bash
+   npm install
+   ```
 
-## Learn More
+3. **Database Setup**:
+   The project requires a Supabase database with the following tables:
+   - `reports`: Stores report metadata and overall scores.
+   - `claims`: Stores extracted ESG claims and their verdicts.
+   - `evidence`: Stores third-party sources linked to claims.
+   - `jobs`: Tracks pipeline progress.
 
-To learn more about Next.js, take a look at the following resources:
+4. **Run the development server**:
+   ```bash
+   npm run dev
+   ```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 📂 Project Structure
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- `src/app/page.tsx`: Landing page with smooth-scrolling navigation and FAQ.
+- `src/app/report/[reportId]/page.tsx`: Main analysis dashboard for a specific report.
+- `src/app/api/pipeline/run/route.ts`: Core orchestrator for the analysis pipeline.
+- `src/lib/supabase.ts`: Supabase client configuration.
 
-## Deploy on Vercel
+## 📜 Documentation
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+For a deep dive into the underlying architecture and logic, see [PIPELINE.md](PIPELINE.md).
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 📄 License
+
+This project is licensed under the MIT License.

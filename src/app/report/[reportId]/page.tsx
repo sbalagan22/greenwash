@@ -59,6 +59,9 @@ interface Report {
 type VerdictFilter = "all" | "supported" | "mixed" | "contradicted" | "unverified";
 type ViewMode = "overview" | "claims" | "document";
 
+// ============================================================
+// HELPERS
+// ============================================================
 function getVerdict(score: number | null): 'supported' | 'mixed' | 'contradicted' | 'unverified' {
   if (score === null || score === undefined) return 'unverified';
   const normalized = score <= 1 && score > 0 ? score * 100 : score;
@@ -133,53 +136,6 @@ function ClaimsAndDocumentView({
           return true;
       });
 
-    const renderHighlights = (props: any) => {
-        const { pageIndex } = props;
-        const pageClaims = claims.filter(c => c.page_reference === pageIndex + 1 && c.bbox);
-        
-        return (
-            <>
-                {pageClaims.map(claim => {
-                    const verdict = getVerdict(claim.confidence);
-                    const color = getScoreColor(claim.confidence);
-                    const isSelected = selectedClaimId === claim.id;
-                    const strokeColor = color; 
-                    return (
-                        <div
-                            key={claim.id}
-                            style={{
-                                position: 'absolute',
-                                left: `${claim.bbox!.x}%`,
-                                top: `${claim.bbox!.y}%`,
-                                width: `${claim.bbox!.width}%`,
-                                height: `${claim.bbox!.height}%`,
-                                backgroundColor: isSelected ? 'transparent' : color,
-                                border: `1.5px solid ${strokeColor}`,
-                                borderRadius: '3px',
-                                opacity: isSelected ? 0.7 : 0.35,
-                                outline: isSelected ? `2px solid ${strokeColor}` : 'none',
-                                cursor: 'pointer',
-                                transition: 'opacity 0.15s ease, outline 0.15s ease',
-                                zIndex: 10,
-                            }}
-                            onMouseEnter={e => {
-                                if (!isSelected) e.currentTarget.style.opacity = '0.6';
-                            }}
-                            onMouseLeave={e => {
-                                if (!isSelected) e.currentTarget.style.opacity = '0.35';
-                            }}
-                            onClick={() => {
-                                setSelectedClaimId(claim.id);
-                                setExpandedClaimId(null);
-                                claimRefs.current[claim.id]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                            }}
-                        />
-                    );
-                })}
-            </>
-        );
-    };
-
     return (
         <div className="flex w-full h-full" style={{ height: "calc(100vh - 120px)" }}>
             <div className="w-[360px] shrink-0 h-full overflow-y-auto" style={{ borderRight: "1px solid var(--gw-border)", background: "var(--bg-base)", padding: "16px" }}>
@@ -238,17 +194,7 @@ function ClaimsAndDocumentView({
             <div className="flex-1 h-full overflow-y-auto" style={{ background: '#e4e4e4' }}>
                 {pdfUrl ? (
                     <Worker workerUrl={`https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js`}>
-                        <Viewer 
-                            fileUrl={pdfUrl} 
-                            renderPage={(props) => (
-                                <>
-                                    {props.canvasLayer.children}
-                                    {props.textLayer.children}
-                                    {props.annotationLayer.children}
-                                    {renderHighlights(props)}
-                                </>
-                            )}
-                        />
+                        <Viewer fileUrl={pdfUrl} />
                     </Worker>
                 ) : (
                     <div className="flex items-center justify-center h-full text-sm text-gray-500">
@@ -324,16 +270,77 @@ function OverviewView({ report, claims }: { report: Report; claims: Claim[] }) {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {Object.entries(categoryConfig).map(([key, config]) => {
                             const Icon = config.icon;
-                            let count = 0;
-                            if (claims) count = claims.filter(c => c.category === key).length;
+                            const categoryClaims = claims.filter(c => c.category === key);
+                            const count = categoryClaims.length;
+                            
+                            // Calculate average score
+                            const scores = categoryClaims
+                                .map(c => c.confidence)
+                                .filter((s): s is number => s !== null && s !== undefined);
+                            
+                            const avgScore = scores.length > 0
+                                ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length * 100)
+                                : null;
+                            
+                            const catScoreColor = avgScore !== null ? getScoreColor(avgScore) : '#CCCCCC';
+
                             return (
-                                <div key={key} style={{ background: config.bg, borderRadius: 10, padding: '14px 16px' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                                        <Icon size={16} color={config.color} />
-                                        <span style={{ fontSize: 13, fontWeight: 500, color: config.color }}>{config.label}</span>
+                                <div 
+                                    key={key} 
+                                    style={{ 
+                                        background: "var(--bg-surface)", 
+                                        borderRadius: 16, 
+                                        padding: '24px',
+                                        border: '1px solid var(--gw-border)',
+                                        boxShadow: '0 4px 12px rgba(0,0,0,0.02)'
+                                    }}
+                                >
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div className="flex items-center gap-2.5">
+                                            <div 
+                                                className="p-2 rounded-xl" 
+                                                style={{ background: config.bg }}
+                                            >
+                                                <Icon size={18} color={config.color} />
+                                            </div>
+                                            <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>
+                                                {config.label}
+                                            </span>
+                                        </div>
+                                        {avgScore !== null && (
+                                            <div 
+                                                className="text-[10px] font-bold px-2 py-0.5 rounded-full border"
+                                                style={{ 
+                                                    borderColor: catScoreColor, 
+                                                    color: catScoreColor,
+                                                    background: `${catScoreColor}10`
+                                                }}
+                                            >
+                                                {getVerdictLabel(getVerdict(avgScore))?.tag}
+                                            </div>
+                                        )}
                                     </div>
-                                    <div style={{ fontSize: 24, fontWeight: 700, color: '#111' }}>{count}</div>
-                                    <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>claims found</div>
+
+                                    <div className="flex items-baseline gap-1 mb-3">
+                                        <span className="text-3xl font-mono-gw font-bold" style={{ color: avgScore !== null ? catScoreColor : "var(--text-muted)" }}>
+                                            {avgScore !== null ? avgScore : '--'}
+                                        </span>
+                                        <span className="text-sm font-medium" style={{ color: "var(--text-muted)" }}>/100</span>
+                                    </div>
+
+                                    <div className="w-full h-1.5 rounded-full bg-slate-100 mb-3 overflow-hidden">
+                                        <div 
+                                            className="h-full transition-all duration-700"
+                                            style={{ 
+                                                width: avgScore !== null ? `${avgScore}%` : '0%',
+                                                background: catScoreColor
+                                            }}
+                                        />
+                                    </div>
+
+                                    <div className="text-[11px] font-medium" style={{ color: "var(--text-muted)" }}>
+                                        across {count} {count === 1 ? 'claim' : 'claims'}
+                                    </div>
                                 </div>
                             )
                         })}
@@ -385,30 +392,15 @@ export default function ReportPage({ params }: { params: Promise<{ reportId: str
     useEffect(() => {
         async function loadReportData() {
             try {
-                if (reportId === "demo") {
-                    setReport({
-                        id: "demo",
-                        company_name: "PetroGreen Energy Corp",
-                        report_year: 2024,
-                        pdf_url: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
-                        pdf_text: "Demo report text...",
-                        status: "completed",
-                        created_at: new Date().toISOString(),
-                        overall_score: 34,
-                        overall_analysis: "Our analysis indicates significant discrepancies between PetroGreen's sustainability claims and independent verifiable data. Several claims directly contradict official government sources, particularly regarding emissions, safety records, and water use.\n\nThe most severe contradictions were found in the operations safety and emissions categories, where external registries and independent reports tell a fundamentally different story than the company’s corporate communications.\n\nWhile some elements—notably the company's capital investment in CCS (Carbon Capture and Storage) technologies and biodiversity offsets—are verifiable and supported, the overall balance leans heavily toward \"greenwashing,\" as key operating realities are misrepresented.",
-                        category_scores: { carbon: 60, sourcing: 85, water: 15, labor: 10 }
-                    });
-                    setClaims(DEMO_CLAIMS);
-                    setEvidence(DEMO_EVIDENCE);
-                    return;
-                }
+                // Point "demo" to the real H&M report ID
+                const activeReportId = reportId === "demo" ? "08362af7-1cf1-4355-aa28-151a2b294e23" : reportId;
 
                 const { supabase } = await import("@/lib/supabase");
                 
                 const { data: repData, error: repError } = await supabase
                     .from("reports")
                     .select("*")
-                    .eq("id", reportId)
+                    .eq("id", activeReportId)
                     .single();
 
                 if (repError) throw repError;
@@ -416,7 +408,7 @@ export default function ReportPage({ params }: { params: Promise<{ reportId: str
                 const { data: claimsData, error: claimsError } = await supabase
                     .from("claims")
                     .select("*")
-                    .eq("report_id", reportId)
+                    .eq("report_id", activeReportId)
                     .order("seq_index", { ascending: true });
 
                 if (claimsError) throw claimsError;
@@ -657,8 +649,8 @@ export default function ReportPage({ params }: { params: Promise<{ reportId: str
                         evidence={evidence}
                         verdictFilter={verdictFilter}
                         categoryFilter={categoryFilter}
-                        expandedClaimId={expandedClaimId}
-                        setExpandedClaimId={setExpandedClaimId}
+                        selectedClaimId={selectedClaimId}
+                        setSelectedClaimId={setSelectedClaimId}
                         claimRefs={claimRefs}
                     />
                 ) : (
@@ -689,16 +681,16 @@ function ClaimsView({
     evidence,
     verdictFilter,
     categoryFilter,
-    expandedClaimId,
-    setExpandedClaimId,
+    selectedClaimId,
+    setSelectedClaimId,
     claimRefs
 }: {
     claims: Claim[];
     evidence: Record<string, Evidence[]>;
     verdictFilter: VerdictFilter;
     categoryFilter: string;
-    expandedClaimId: string | null;
-    setExpandedClaimId: (id: string | null) => void;
+    selectedClaimId: string | null;
+    setSelectedClaimId: (id: string | null) => void;
     claimRefs: React.MutableRefObject<Record<string, HTMLDivElement | null>>;
 }) {
     const visibleClaims = claims.filter(c => {
@@ -707,282 +699,132 @@ function ClaimsView({
         return true;
     });
 
+    const selectedClaim = claims.find(c => c.id === selectedClaimId) || null;
+    const selectedClaimEvidence = selectedClaim ? (evidence[selectedClaim.id] || []) : [];
+
     return (
-        <div className="w-full h-full overflow-y-auto" style={{ background: "var(--bg-base)" }}>
-            <div className="max-w-4xl mx-auto px-6 py-10">
+        <div className="flex w-full h-full" style={{ height: "calc(100vh - 120px)" }}>
+            <div className="w-[360px] shrink-0 h-full overflow-y-auto" style={{ borderRight: "1px solid var(--gw-border)", background: "var(--bg-base)", padding: "16px" }}>
                 {visibleClaims.map(claim => {
-                    const isExpanded = expandedClaimId === claim.id;
+                    const isSelected = selectedClaimId === claim.id;
                     const verdict = getVerdict(claim.confidence);
                     const scoreColor = getScoreColor(claim.confidence);
-                    const claimEvidence = evidence[claim.id] || [];
-
                     return (
                         <div
                             key={claim.id}
                             ref={el => { claimRefs.current[claim.id] = el }}
-                            onClick={() => {
-                                if (isExpanded) {
-                                    setExpandedClaimId(null);
-                                } else {
-                                    setExpandedClaimId(claim.id);
-                                }
-                            }}
+                            onClick={() => setSelectedClaimId(claim.id)}
                             style={{
-                                background: '#FFFFFF',
-                                borderLeft: `6px solid ${scoreColor}`,
-                                borderRadius: 16,
-                                padding: '24px 32px',
+                                background: isSelected ? getScoreBg(claim.confidence) : '#FFFFFF',
+                                borderLeft: `3px solid ${scoreColor}`,
+                                borderRadius: 10,
+                                padding: '14px 16px',
                                 cursor: 'pointer',
-                                marginBottom: 20,
-                                border: '1px solid var(--gw-border)',
-                                boxShadow: isExpanded ? '0 12px 40px rgba(0,0,0,0.06)' : '0 4px 12px rgba(0,0,0,0.03)',
-                                transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
+                                marginBottom: 8,
+                                transition: 'background 0.15s ease',
+                                border: isSelected ? undefined : '1px solid var(--gw-border)'
                             }}
                         >
-                            <p style={{ fontSize: 18, color: '#111', marginBottom: 20, fontWeight: 500, lineHeight: 1.5 }}>
-                                "{claim.claim_text}"
-                            </p>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                <Badge variant="outline" style={{ background: scoreColor, color: '#fff', fontSize: '11px', padding: '4px 10px', border: 'none' }}>
+                            <p style={{ fontSize: 13, color: '#111', marginBottom: 8 }} className="line-clamp-3">{claim.claim_text}</p>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <Badge variant="outline" style={{ background: scoreColor, color: '#fff', fontSize: '10px', padding: '2px 6px', border: 'none' }}>
                                     {getVerdictLabel(verdict).tag}
                                 </Badge>
-                                <Badge variant="outline" className="capitalize text-[11px]" style={{ padding: '4px 10px' }}>
+                                <Badge variant="outline" className="capitalize text-[10px]" style={{ padding: '2px 6px' }}>
                                     {claim.category}
                                 </Badge>
-                                {claim.confidence !== null && (
-                                    <span style={{ fontSize: 13, color: scoreColor, fontWeight: 700 }}>
-                                        Score: {Math.round(claim.confidence <= 1 ? claim.confidence * 100 : claim.confidence)}%
-                                    </span>
-                                )}
                             </div>
-
-                            {isExpanded && (
-                                <motion.div 
-                                    initial={{ opacity: 0, height: 0 }} 
-                                    animate={{ opacity: 1, height: "auto" }} 
-                                    className="overflow-hidden"
-                                >
-                                    <div style={{ marginTop: 24, borderTop: '1px solid #F0F0F0', paddingTop: 20 }}>
-                                        <p style={{ fontSize: 14, color: '#555', marginBottom: 20 }}>
-                                            <strong>Entities:</strong> {(claim.entities?.companies as string[] | undefined)?.join(', ') || 'N/A'}
-                                        </p>
-                                        
-                                        <div className="space-y-4">
-                                            {claimEvidence.map((ev, i) => (
-                                                <div key={i} style={{
-                                                    background: '#F9FAFB',
-                                                    borderRadius: 12,
-                                                    padding: '20px 24px',
-                                                    borderLeft: `4px solid ${ev.supports ? '#5A9E67' : '#C05050'}`
-                                                }}>
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
-                                                        <strong style={{ color: '#111', fontSize: 14 }}>{ev.source_name}</strong>
-                                                        <span style={{ color: ev.supports ? '#5A9E67' : '#C05050', fontWeight: 700, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                                            {ev.supports ? '↑ Supports' : '↓ Contradicts'}
-                                                        </span>
-                                                    </div>
-                                                    <p style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 13, color: '#444', lineHeight: 1.6 }}>{ev.snippet}</p>
-                                                    {ev.source_url && (
-                                                        <a href={ev.source_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: '#85C391', display: 'flex', alignItems: 'center', gap: 6, marginTop: 14, fontWeight: 600 }}>
-                                                            <ExternalLink size={14} /> View original source
-                                                        </a>
-                                                    )}
-                                                </div>
-                                            ))}
-                                            {claimEvidence.length === 0 && (
-                                                <div className="p-4 text-center text-gray-500 bg-gray-50 rounded-lg text-sm">
-                                                    No direct evidence found for this specific claim.
-                                                </div>
-                                            )}
-                                        </div>
-                                        <div style={{ marginTop: 24, background: 'linear-gradient(to right, #F5F7F9, #FFFFFF)', padding: '20px 24px', borderRadius: 12, border: '1px solid #E5E7EB' }}>
-                                            <h4 style={{ fontSize: 13, color: '#333', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 800, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                <Sparkles size={14} style={{ color: "var(--brand-dark)" }} /> 
-                                                AI Reasoning
-                                            </h4>
-                                            <p style={{ fontSize: 14, color: '#555', lineHeight: 1.7 }}>{claim.reasoning || "Insufficient data to provide automated reasoning."}</p>
-                                        </div>
-                                    </div>
-                                </motion.div>
-                            )}
                         </div>
                     );
                 })}
+            </div>
+
+            <div className="flex-1 h-full overflow-y-auto" style={{ background: '#FDFDFC', padding: '40px' }}>
+                {!selectedClaim && (
+                    <div className="flex items-center justify-center h-full text-sm" style={{ color: "var(--text-muted)" }}>
+                        Select a claim from the left to view details.
+                    </div>
+                )}
+                
+                {selectedClaim && (
+                    <div className="max-w-3xl mx-auto">
+                        <div className="mb-8">
+                            <h2 className="text-2xl font-display font-medium text-gray-900 leading-relaxed">
+                                "{selectedClaim.claim_text}"
+                            </h2>
+                        </div>
+                        
+                        {/* Section B — AI Reasoning (MOVED TO TOP) */}
+                        <div className="mb-10">
+                            <h3 className="text-lg font-display font-bold mb-6 flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
+                                <div className="w-2.5 h-2.5 rounded-full" style={{ background: "var(--brand-dark)" }} />
+                                AI Reasoning
+                            </h3>
+                            <div style={{ background: '#F7F8F7', borderRadius: '12px', borderLeft: '3px solid #85C391', padding: '32px' }}>
+                                <p style={{ fontSize: 15, color: '#333', lineHeight: 1.7 }} className="font-sans">
+                                    {selectedClaim.reasoning || "Insufficient data to provide automated reasoning."}
+                                </p>
+                                
+                                <div className="mt-8 pt-6 border-t border-gray-200/60 flex items-center gap-4">
+                                    {selectedClaim.confidence !== null ? (
+                                        <>
+                                            <span className="text-5xl font-mono-gw font-bold tracking-tight" style={{ color: getScoreColor(selectedClaim.confidence) }}>
+                                                {Math.round(selectedClaim.confidence <= 1 ? selectedClaim.confidence * 100 : selectedClaim.confidence)}
+                                            </span>
+                                            <div className="flex flex-col gap-1">
+                                                <span className="text-xs font-semibold uppercase tracking-widest text-gray-500">Credibility Score</span>
+                                                <Badge variant="outline" style={{ background: getScoreColor(selectedClaim.confidence), color: '#fff', fontSize: '11px', padding: '2px 8px', border: 'none', width: 'fit-content' }}>
+                                                    {getVerdictLabel(getVerdict(selectedClaim.confidence)).tag}
+                                                </Badge>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <span className="text-sm font-semibold uppercase tracking-widest text-gray-500">Unverified / No Score</span>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Section A — Evidence Sources */}
+                        <div>
+                            <h3 className="text-lg font-display font-bold mb-6 flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
+                                <div className="w-2.5 h-2.5 rounded-full" style={{ background: "var(--brand-dark)" }} />
+                                Evidence
+                            </h3>
+                            <div className="space-y-4 mb-10">
+                                {selectedClaimEvidence.map((ev, i) => (
+                                    <div key={i} style={{
+                                        background: '#F9FAFB',
+                                        borderRadius: 12,
+                                        padding: '24px',
+                                        borderLeft: `4px solid ${ev.supports ? '#5A9E67' : '#C05050'}`
+                                    }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+                                            <strong style={{ color: '#111', fontSize: 15 }}>{ev.source_name}</strong>
+                                            <span style={{ color: ev.supports ? '#5A9E67' : '#C05050', fontWeight: 700, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                                {ev.supports ? '↑ Supports' : '↓ Contradicts'}
+                                            </span>
+                                        </div>
+                                        <p style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 14, color: '#444', lineHeight: 1.6 }}>{ev.snippet}</p>
+                                        {ev.source_url && (
+                                            <a href={ev.source_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: '#85C391', display: 'flex', alignItems: 'center', gap: 6, marginTop: 16, fontWeight: 600 }}>
+                                                <ExternalLink size={14} /> View source →
+                                            </a>
+                                        )}
+                                    </div>
+                                ))}
+                                {selectedClaimEvidence.length === 0 && (
+                                    <div className="p-6 text-center text-gray-500 bg-gray-50 border border-gray-100 rounded-xl text-sm">
+                                        No evidence found for this claim.
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );
 }
 
 
-const DEMO_CLAIMS: Claim[] = [
-    {
-        id: "demo-1",
-        report_id: "demo",
-        claim_text: "We reduced our Scope 1 greenhouse gas emissions by 35% compared to our 2019 baseline.",
-        category: "carbon",
-        entities: { companies: ["PetroGreen Energy Corp"], metrics: ["Scope 1 GHG emissions", "35% reduction"], time_period: "2019–2024" },
-        verdict: "contradicted",
-        confidence: 0.08,
-        reasoning: "Environment Canada's National Pollutant Release Inventory shows PetroGreen Energy Corp's facilities in Alberta reported increased total emissions of 2.4 million tonnes CO2e in 2023, up from 2.1 million tonnes in 2019 — an increase of approximately 14%.",
-        seq_index: 0,
-        page_reference: 1,
-        bbox: { x: 10, y: 15, width: 80, height: 5 }
-    },
-    {
-        id: "demo-2",
-        report_id: "demo",
-        claim_text: "100% of electricity consumed at our corporate offices comes from renewable energy certificates.",
-        category: "carbon",
-        entities: { companies: ["PetroGreen Energy Corp"], metrics: ["100% renewable electricity"], regions: ["Corporate offices"] },
-        verdict: "supported",
-        confidence: 0.88,
-        reasoning: "Renewable Energy Certificate (REC) purchases are documented in PetroGreen's CDP submission.",
-        seq_index: 1,
-        page_reference: 1,
-        bbox: { x: 10, y: 25, width: 80, height: 5 }
-    },
-    {
-        id: "demo-3",
-        report_id: "demo",
-        claim_text: "Our supply chain audit program covers 95% of tier-1 suppliers for environmental compliance.",
-        category: "sourcing",
-        entities: { companies: ["PetroGreen Energy Corp"], metrics: ["95% tier-1 supplier coverage"] },
-        verdict: "unverified",
-        confidence: null,
-        reasoning: "No independent verification of supplier audit coverage was found.",
-        seq_index: 2,
-        page_reference: 2,
-        bbox: { x: 10, y: 35, width: 80, height: 5 }
-    },
-    {
-        id: "demo-4",
-        report_id: "demo",
-        claim_text: "We achieved zero fatalities and a 40% reduction in recordable incidents across all operations in 2024.",
-        category: "labor",
-        entities: { companies: ["PetroGreen Energy Corp"], metrics: ["Zero fatalities", "40% incident reduction"], time_period: "2024" },
-        verdict: "contradicted",
-        confidence: 0.1,
-        reasoning: "Media reports from CBC News in August 2024 documented a fatal incident at PetroGreen's Fort McMurray facility. Alberta OHS records show two workplace fatalities in 2024.",
-        seq_index: 3,
-        page_reference: 2,
-        bbox: { x: 10, y: 45, width: 80, height: 5 }
-    },
-    {
-        id: "demo-5",
-        report_id: "demo",
-        claim_text: "PetroGreen invested $500 million in carbon capture and storage technology in 2024.",
-        category: "carbon",
-        entities: { companies: ["PetroGreen Energy Corp"], metrics: ["$500M CCS investment"], time_period: "2024" },
-        verdict: "supported",
-        confidence: 0.85,
-        reasoning: "PetroGreen's 2024 annual financial filing confirms a $480M capital expenditure allocation to CCS projects.",
-        seq_index: 4,
-        page_reference: 3,
-        bbox: { x: 10, y: 55, width: 80, height: 5 }
-    },
-    {
-        id: "demo-6",
-        report_id: "demo",
-        claim_text: "Our water recycling program recovers 90% of water used in extraction processes.",
-        category: "water",
-        entities: { companies: ["PetroGreen Energy Corp"], metrics: ["90% water recycling rate"], regions: ["Extraction operations"] },
-        verdict: "contradicted",
-        confidence: 0.12,
-        reasoning: "Alberta Energy Regulator data shows PetroGreen's water recycling rates average approximately 65%.",
-        seq_index: 5,
-        page_reference: 3,
-        bbox: { x: 10, y: 65, width: 80, height: 5 }
-    },
-    {
-        id: "demo-7",
-        report_id: "demo",
-        claim_text: "We have committed to achieving net-zero Scope 1 and 2 emissions by 2040.",
-        category: "labor",
-        entities: { companies: ["PetroGreen Energy Corp"], metrics: ["Net-zero by 2040"] },
-        verdict: "unverified",
-        confidence: null,
-        reasoning: "This is a forward-looking commitment rather than a verifiable current claim.",
-        seq_index: 6,
-        page_reference: 4,
-        bbox: { x: 10, y: 75, width: 80, height: 5 }
-    },
-    {
-        id: "demo-8",
-        report_id: "demo",
-        claim_text: "PetroGreen's biodiversity offset program has protected over 15,000 hectares of boreal forest in Northern Alberta.",
-        category: "sourcing",
-        entities: { companies: ["PetroGreen Energy Corp"], metrics: ["15,000 hectares protected"], regions: ["Northern Alberta"] },
-        verdict: "supported",
-        confidence: 0.92,
-        reasoning: "Alberta Biodiversity Monitoring Institute records confirm conservation agreements covering approximately 14,800 hectares.",
-        seq_index: 7,
-        page_reference: 4,
-        bbox: { x: 10, y: 85, width: 80, height: 5 }
-    },
-];
-
-const DEMO_EVIDENCE: Record<string, Evidence[]> = {
-    "demo-1": [
-        {
-            id: "ev-1a", claim_id: "demo-1",
-            source_name: "Environment Canada — NPRI",
-            source_url: "https://www.canada.ca/en/services/environment/pollution-waste-management/national-pollutant-release-inventory.html",
-            snippet: "PetroGreen Energy Corp facilities reported total GHG emissions of 2,412,000 tonnes CO2e for 2023, up from 2,115,000 tonnes in 2019 — an increase of approximately 14%.",
-            supports: false,
-        },
-        {
-            id: "ev-1b", claim_id: "demo-1",
-            source_name: "GHG Reporting Program — Canada.ca",
-            source_url: "https://www.canada.ca/en/environment-climate-change/services/climate-change/greenhouse-gas-emissions/facility-reporting.html",
-            snippet: "Federal greenhouse gas reporting data for large emitters confirms PetroGreen Energy Corp as reporting increased emissions across its Alberta and Saskatchewan operations between 2019 and 2023.",
-            supports: false,
-        },
-    ],
-    "demo-2": [
-        {
-            id: "ev-2a", claim_id: "demo-2",
-            source_name: "CDP Climate Questionnaire 2024",
-            source_url: "https://www.cdp.net/en",
-            snippet: "PetroGreen disclosed purchase of RECs equivalent to 100% of corporate office electricity consumption (approximately 12,000 MWh) for the 2023-2024 period.",
-            supports: true,
-        },
-    ],
-    "demo-3": [],
-    "demo-4": [
-        {
-            id: "ev-4a", claim_id: "demo-4",
-            source_name: "Alberta OHS — Incident Reports",
-            source_url: "https://www.alberta.ca/occupational-health-safety",
-            snippet: "Two workplace fatalities recorded at PetroGreen Energy Corp operations during 2024 fiscal year. Both incidents under investigation.",
-            supports: false,
-        },
-    ],
-    "demo-5": [
-        {
-            id: "ev-5a", claim_id: "demo-5",
-            source_name: "Reuters",
-            source_url: "https://www.reuters.com/business/energy/",
-            snippet: "PetroGreen Energy announced a $480 million investment in carbon capture infrastructure at its Alberta operations, one of the largest CCS commitments by a Canadian energy company in 2024.",
-            supports: true,
-        },
-    ],
-    "demo-6": [
-        {
-            id: "ev-6a", claim_id: "demo-6",
-            source_name: "Alberta Energy Regulator",
-            source_url: "https://www.aer.ca/providing-information/data-and-reports",
-            snippet: "Water recycling rates for PetroGreen's SAGD operations averaged 65.2% across all facilities in 2023, below the industry average of 72% for thermal oil sands operations.",
-            supports: false,
-        },
-    ],
-    "demo-7": [],
-    "demo-8": [
-        {
-            id: "ev-8a", claim_id: "demo-8",
-            source_name: "Alberta Biodiversity Monitoring Institute",
-            source_url: "https://www.abmi.ca/home/data-analytics",
-            snippet: "Conservation agreements associated with PetroGreen Energy Corp cover approximately 14,800 hectares in the Athabasca boreal region.",
-            supports: true,
-        },
-    ],
-};

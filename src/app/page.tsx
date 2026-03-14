@@ -50,6 +50,49 @@ const staggerContainer = {
   },
 };
 
+function FAQItem({ question, answer }: { question: string, answer: string }) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <motion.div 
+      className="rounded-2xl border border-white bg-white/40 backdrop-blur-xl overflow-hidden shadow-sm transition-all hover:shadow-md"
+      style={{ borderColor: "var(--gw-border)" }}
+    >
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full px-8 py-6 flex items-center justify-between text-left transition-colors hover:bg-white/40"
+      >
+        <span className="font-display font-extrabold text-lg" style={{ color: "var(--text-primary)" }}>
+          {question}
+        </span>
+        <motion.span
+          animate={{ rotate: isOpen ? 45 : 0 }}
+          transition={{ duration: 0.2 }}
+          style={{ color: "var(--brand-dark)" }}
+        >
+          <Sparkles size={20} />
+        </motion.span>
+      </button>
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+          >
+            <div className="px-8 pb-6 pt-0">
+              <p className="text-base leading-relaxed font-medium" style={{ color: "var(--text-secondary)" }}>
+                {answer}
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
+
 export default function HomePage() {
   const router = useRouter();
   const [uploading, setUploading] = useState(false);
@@ -136,8 +179,7 @@ export default function HomePage() {
   return (
     <div className="min-h-screen relative overflow-hidden" style={{ background: "var(--bg-base)" }}>
       {/* Premium Background Gradients */}
-      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full opacity-20 blur-[120px] pointer-events-none" style={{ background: "radial-gradient(circle, var(--brand) 0%, transparent 70%)" }} />
-      <div className="absolute bottom-[20%] right-[-10%] w-[40%] h-[40%] rounded-full opacity-10 blur-[100px] pointer-events-none" style={{ background: "radial-gradient(circle, var(--brand-dark) 0%, transparent 70%)" }} />
+      
 
       {/* Navigation */}
       <motion.nav
@@ -161,21 +203,28 @@ export default function HomePage() {
             greenwash
           </span>
         </div>
-        <div className="flex items-center gap-8">
-          <a
-            href="#how-it-works"
-            className="text-sm font-semibold transition-colors hover:opacity-75"
-            style={{ color: "var(--text-secondary)" }}
-          >
-            How it works
-          </a>
-          <a
-            href="#try-it"
-            className="text-sm font-semibold py-2 px-4 rounded-full border shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5"
+        <div className="flex items-center gap-6">
+          <button
+            onClick={() => window.scrollTo({ top: 280, behavior: "smooth" })}
+            className="text-sm font-semibold py-2 px-4 rounded-full border shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 cursor-pointer"
             style={{ color: "var(--text-primary)", borderColor: "var(--gw-border)", background: "white" }}
           >
             Try it
-          </a>
+          </button>
+          <button
+            onClick={() => window.scrollTo({ top: 1015, behavior: "smooth" })}
+            className="text-sm font-semibold transition-colors hover:opacity-75 cursor-pointer"
+            style={{ color: "var(--text-secondary)" }}
+          >
+            How it works
+          </button>
+          <button
+            onClick={() => window.scrollTo({ top: 1842, behavior: "smooth" })}
+            className="text-sm font-semibold transition-colors hover:opacity-75 cursor-pointer"
+            style={{ color: "var(--text-secondary)" }}
+          >
+            FAQ
+          </button>
         </div>
       </motion.nav>
 
@@ -336,7 +385,7 @@ export default function HomePage() {
 
           <div className="text-center mt-10">
             <Button
-              onClick={() => router.push("/report/demo")}
+              onClick={() => router.push("/report/08362af7-1cf1-4355-aa28-151a2b294e23")}
               size="lg"
               className="font-bold text-base gap-2 px-8 h-12 shadow-lg hover:shadow-xl transition-all hover:-translate-y-0.5 rounded-full"
               style={{ background: "var(--text-primary)", color: "white" }}
@@ -538,6 +587,47 @@ export default function HomePage() {
             </div>
           </motion.div>
         </div>
+
+        {/* FAQ Section */}
+        <motion.section
+          initial={{ opacity: 0, y: 40 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.8 }}
+          className="max-w-4xl mx-auto mt-40 mb-32"
+        >
+          <div className="text-center mb-16">
+            <h2 className="font-display text-4xl md:text-5xl font-black mb-6 tracking-tight" style={{ color: "var(--text-primary)" }}>
+              Common <span style={{ color: "var(--brand-dark)" }}>Questions</span>
+            </h2>
+            <p className="text-lg font-medium" style={{ color: "var(--text-secondary)" }}>
+              Everything you need to know about our sustainability audit process.
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            {[
+              {
+                q: "How does GreenWash verify environmental claims?",
+                a: "We use a multi-step verification process. First, we extract specific, measurable claims from your report. Then, our autonomous agents cross-reference these claims against over 100,000 public data sources, including government registries (like the EPA or NPRI), independent ESG databases, and real-time news archives."
+              },
+              {
+                q: "What kind of reports can I upload?",
+                a: "You can upload any PDF version of a Sustainability Report, ESG Report, CSR (Corporate Social Responsibility) Report, or Annual Report. Our system is optimized for reports that contain quantitative environmental and social performance data."
+              },
+              {
+                q: "How is the credibility score calculated?",
+                a: "The score is a mathematical average of confidence values assigned to individual claims. Each claim is graded based on the strength of supporting or contradicting evidence found. Claims with no verifiable data are excluded from the average to ensure the score accurately reflects only what can be proven."
+              },
+              {
+                q: "Is my uploaded data secure?",
+                a: "Yes. We prioritize data privacy. Uploaded reports are processed in a secure environment and are only used for the duration of the analysis. We do not sell your corporate data or use it to train public models without explicit permission."
+              }
+            ].map((faq, i) => (
+              <FAQItem key={i} question={faq.q} answer={faq.a} />
+            ))}
+          </div>
+        </motion.section>
       </main>
 
       {/* Footer */}

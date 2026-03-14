@@ -30,7 +30,22 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# Documentation exclusion
+*.md
+!README.md
+!PIPELINE.md
+
+# Test files & scripts
+test-*
+*-test.*
+*.test.*
+large-test.pdf
+test_report.pdf
+convert-loader.js
+convert.js
+patch-page.js
+
+# Env files
 .env*
 
 # vercel

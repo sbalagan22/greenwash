@@ -54,6 +54,25 @@ async function extractClaims(
         .update({ pdf_text: pdfText })
         .eq("id", reportId);
 
+    // Extract company name if missing
+    const { data: currentReport } = await supabase.from("reports").select("company_name").eq("id", reportId).single();
+    let companyName = currentReport?.company_name;
+
+    if (!companyName) {
+        const companyResponse = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            max_completion_tokens: 50,
+            messages: [
+                { role: "system", content: "Extract only the company name from this sustainability report text. Return only the company name, nothing else." },
+                { role: "user", content: pdfText.slice(0, 4000) }
+            ]
+        });
+        companyName = companyResponse.choices[0].message.content?.trim();
+        if (companyName) {
+            await supabase.from("reports").update({ company_name: companyName }).eq("id", reportId);
+        }
+    }
+
     // Chunk the text
     const CHUNK_SIZE = 4000;
     const OVERLAP = 200;
@@ -105,22 +124,9 @@ async function extractClaims(
                                             type: "object",
                                             properties: {
                                                 text: { type: "string" },
-                                                category: { type: "string", enum: ["carbon", "sourcing", "water", "labor", "governance", "other"] },
-                                                page_reference: { type: ["number", "null"] },
-                                                bbox: {
-                                                    type: ["object", "null"],
-                                                    properties: {
-                                                        x: { type: "number" },
-                                                        y: { type: "number" },
-                                                        width: { type: "number" },
-                                                        height: { type: "number" }
-                                                    },
-                                                    required: ["x", "y", "width", "height"],
-                                                    additionalProperties: false
-                                                },
-                                                entities_mentioned: { type: "array", items: { type: "string" } }
+                                                category: { type: "string", enum: ["carbon", "sourcing", "water", "labor"] },
                                             },
-                                            required: ["text", "category", "page_reference", "bbox", "entities_mentioned"],
+                                            required: ["text", "category"],
                                             additionalProperties: false
                                         }
                                     }
@@ -133,18 +139,43 @@ async function extractClaims(
                     messages: [
                         {
                             role: "system",
-                            content: `You are an ESG analyst. Extract every explicit sustainability claim from this document segment.
+                            content: `You are an ESG analyst. Extract only EXPLICIT, VERIFIABLE sustainability claims from this document segment.
 
-Rules:
-- Only EXPLICIT claims (quantitative statements, specific commitments, measurable assertions)
-- Do NOT extract vague aspirational language
-- Categorize: carbon | sourcing | water | labor | governance
-- Include the exact quote from the document
-- For each claim, also return the page number (1-indexed) and the bounding box of the claim text as a percentage of the page dimensions (x, y, width, height from top-left). If you cannot determine the exact bounding box, return your best estimate based on where in the document the text appears.`,
+A valid claim MUST:
+- Be a complete sentence or clear commitment
+- Contain a specific, verifiable assertion — a number, percentage, target, or direct statement of fact
+- Be attributable to the company making a promise or reporting an achievement
+
+DO NOT extract:
+- Table headers, column labels, or data field names (e.g. "Energy Use – Percentage renewable")
+- Section titles or headings
+- Vague aspirational language without specifics (e.g. "We are committed to sustainability")
+- Statistical data without context (e.g. "41%")
+- Legal disclaimers or footnote references
+- Definitions or explanatory text
+
+GOOD examples of valid claims:
+- "We reduced scope 1 and 2 emissions by 47% compared to our 2019 baseline."
+- "100% of our cotton is sourced from sustainable sources."
+- "We aim to return more than 100% of the water used in finished products globally by 2030."
+
+BAD examples — do NOT extract these:
+- "Energy Use – Percentage renewable (electricity)"
+- "Carbon emissions data"
+- "We are committed to a sustainable future"
+- "See appendix for full methodology"
+
+Categorize each claim into one of exactly these four categories:
+- "carbon" — greenhouse gas emissions, carbon footprint, net zero, energy use
+- "sourcing" — supply chain, raw materials, supplier audits, packaging, recycled content
+- "water" — water usage, recycling, stewardship
+- "labor" — workers, wages, human rights, safety, community impact
+
+Return an empty claims array if no valid claims exist in this chunk. Quality over quantity.`,
                         },
                         {
                             role: "user",
-                            content: `Extract sustainability claims:\n\n${chunk}`,
+                            content: `Extract sustainability claims from this text:\n\n${chunk}`,
                         },
                     ],
                 });
@@ -173,7 +204,10 @@ Rules:
         return true;
     });
 
-    const finalClaims = uniqueClaims.slice(0, 40);
+    // Take up to 40 high-quality claims (must be > 30 chars)
+    const finalClaims = uniqueClaims
+        .filter(claim => claim.text.length > 30)
+        .slice(0, 40);
 
     // Insert claims
     const claimRows = finalClaims.map((claim, index) => ({
@@ -333,77 +367,111 @@ async function verifyClaims(
 
     if (!claims || claims.length === 0) return;
 
-    interface ClaimEntities {
-        companies?: string[];
-        regions?: string[];
-        time_period?: string;
-        suppliers?: string[];
-    }
+    // Cap to 25 searchable claims to control credits
+    const searchableClaims = (claims as any[])
+        .filter(c => c.claim_text.length > 40)
+        .slice(0, 25)
 
-    const limit = pLimit(10);
+    const limit = pLimit(10)
     await Promise.all(
-        claims.map((claim, i) =>
+        searchableClaims.map((claim, i) =>
             limit(async () => {
-                const ents = claim.entities as ClaimEntities | null;
-                const companyNames = ents?.companies?.join(", ") || "the company";
-                const year = ents?.time_period || "recent";
+                const { data: report } = await supabase.from("reports").select("company_name").eq("id", reportId).single()
+                const companyName = report?.company_name || "the company"
 
-                let query = `${companyNames} ${claim.claim_text.slice(0, 80)}`;
-                if (claim.category === "carbon") {
-                    query = `${companyNames} emissions greenwashing ${year}`;
-                } else if (claim.category === "water") {
-                    query = `${companyNames} water pollution violation ${year}`;
-                } else if (claim.category === "labor") {
-                    query = `${companyNames} labor safety violation ${year}`;
-                }
+                // Fix slug to handle hyphenated names like "Coca-Cola"
+                const companySlug = companyName.toLowerCase().replace(/\s+/g, '-')
+                const companySlugNoHyphen = companyName.toLowerCase().replace(/[^\w]/g, '')
 
-                try {
-                    const results = await tvly.search(query, {
-                        maxResults: 3,
-                        searchDepth: "basic",
-                    });
+                const selfDomains = [
+                    `${companySlugNoHyphen}.com`,
+                    `${companySlugNoHyphen}group.com`,
+                    'coca-colacompany.com',
+                    'coca-cola.com',
+                    'hm.com',
+                    'hmgroup.com',
+                ]
 
-                    if (results.results && results.results.length > 0) {
-                        const contradictionKeywords = [
-                            "violation", "fine", "penalty", "lawsuit", "misleading",
-                            "false", "greenwashing", "accused", "scandal", "controversy",
-                            "failed", "pollution", "contamination", "investigation",
-                        ];
+                const claimSnippet = claim.claim_text.slice(0, 80).trim()
 
-                        const evidenceRows = results.results
-                            .filter((r) => r.content && r.content.length > 50)
-                            .slice(0, 3)
-                            .map((result) => {
-                                const snippetLower = (result.content || "").toLowerCase();
-                                const hasContradiction = contradictionKeywords.some((kw) =>
-                                    snippetLower.includes(kw)
-                                );
+                // 2 queries instead of 3
+                const queries = [
+                    `"${companyName}" ${claimSnippet} fact check verification`,
+                    `"${companyName}" ${claim.category} greenwashing misleading false`,
+                ]
 
-                                return {
+                for (const query of queries) {
+                    try {
+                        const results = await tvly.search(query, {
+                            maxResults: 2,           // was 3
+                            searchDepth: "advanced", // keep advanced for quality
+                            excludeDomains: selfDomains,
+                        })
+
+                        if (results.results && results.results.length > 0) {
+                            for (const result of results.results) {
+                                if (!result.content || result.content.length < 100) continue
+
+                                // Skip company's own URLs
+                                const urlLower = result.url.toLowerCase()
+                                if (urlLower.includes(companySlug) || urlLower.includes(companySlugNoHyphen)) continue
+
+                                // Simple relevancy filter — same as the original working version
+                                const filterResponse = await openai.chat.completions.create({
+                                    model: "gpt-4o-mini",
+                                    max_completion_tokens: 10,
+                                    messages: [
+                                        { role: "system", content: "Answer only yes or no." },
+                                        {
+                                            role: "user",
+                                            content: `Does this source relate to ${companyName}'s sustainability or environmental practices?\n\nSource title: ${result.title}\nSource snippet: ${result.content.slice(0, 400)}`
+                                        }
+                                    ]
+                                })
+
+                                const isRelevant = filterResponse.choices[0].message.content?.toLowerCase().includes("yes")
+                                if (!isRelevant) continue
+
+                                const contradictionKeywords = [
+                                    "violation", "fine", "penalty", "lawsuit", "misleading",
+                                    "false", "greenwashing", "accused", "scandal", "controversy",
+                                    "failed", "pollution", "contamination", "investigation",
+                                ]
+
+                                const snippetLower = result.content.toLowerCase()
+                                const hasContradiction = contradictionKeywords.some(kw => snippetLower.includes(kw))
+
+                                await supabase.from("evidence").insert([{
                                     claim_id: claim.id,
                                     source_name: result.title || new URL(result.url).hostname,
                                     source_url: result.url,
-                                    snippet: result.content?.slice(0, 500) || "",
+                                    snippet: result.content.slice(0, 500),
                                     supports: !hasContradiction,
-                                };
-                            });
-
-                        if (evidenceRows.length > 0) {
-                            await supabase.from("evidence").insert(evidenceRows);
+                                }])
+                            }
                         }
+                    } catch (searchErr) {
+                        console.warn(`Search failed for query "${query}":`, searchErr)
                     }
-                } catch (searchErr) {
-                    console.warn(`Search failed for claim ${claim.id}:`, searchErr);
                 }
 
-                const progress = 65 + Math.round(((i + 1) / claims.length) * 20);
+                const progress = 65 + Math.round(((i + 1) / searchableClaims.length) * 20)
                 await supabase
                     .from("jobs")
                     .update({ progress, updated_at: new Date().toISOString() })
-                    .eq("id", jobId);
+                    .eq("id", jobId)
             })
         )
-    );
+    )
+
+    // Debug log — shows how many claims got evidence
+    const { data: evidenceCheck } = await supabase
+        .from('evidence')
+        .select('claim_id')
+        .in('claim_id', searchableClaims.map(c => c.id))
+
+    const claimsWithEvidence = new Set(evidenceCheck?.map(e => e.claim_id) || [])
+    console.log(`[Verify] ${claimsWithEvidence.size}/${searchableClaims.length} claims got evidence`)
 }
 
 // ============================================================
@@ -473,19 +541,21 @@ async function scoreClaims(
                                 role: "system",
                                 content: `You are a strict ESG auditor scoring a corporate sustainability claim against real evidence.
 
-SCORING ZONES (confidence is 0.0 to 1.0):
-- RED ZONE (0.00-0.30): The evidence CLEARLY CONTRADICTS the claim. Use 0.00-0.15 if evidence unanimously contradicts, 0.15-0.30 if mostly contradicting with minor caveats.
-- YELLOW ZONE (0.30-0.70): The evidence is MIXED or CONFLICTING — some sources support, others contradict, or the claim is partially true. Use this range when reality is complicated.
-- GREEN ZONE (0.70-1.00): The evidence CLEARLY SUPPORTS the claim. Use 0.85-1.00 if evidence unanimously supports with no caveats, 0.70-0.85 if mostly supporting with minor gaps.
-- GREY (null): ZERO evidence found — cannot assess.
+When determining the credibility score (0.0 to 1.0):
+- 0.90–1.00: Multiple independent sources confirm the claim with NO contradicting evidence.
+- 0.70–0.89: Sources mostly support the claim with minor gaps.
+- 0.31–0.69: Evidence is MIXED — some supporting, some contradicting.
+- 0.10–0.30: Evidence mostly contradicts the claim.
+- 0.00–0.10: Evidence directly and clearly contradicts the claim.
+- null: NO evidence was found at all (Unverified). Do not guess a score.
+
+The score must reflect the weight and quality of evidence, not a default middle value.
 
 VERDICT RULES:
-- confidence < 0.30 → verdict MUST be "contradicted"
-- confidence >= 0.30 and < 0.70 → verdict MUST be "mixed" (conflicting/unclear)
+- confidence < 0.31 → verdict MUST be "contradicted"
+- confidence >= 0.31 and < 0.70 → verdict MUST be "mixed"
 - confidence >= 0.70 → verdict MUST be "supported"
-- confidence is null (no evidence) → verdict MUST be "unverified"
-
-Be DECISIVE. If evidence flat-out contradicts a claim, give it 0.05-0.15, not 0.25. If evidence fully supports with documentation, give 0.90-1.00, not 0.72. Only use the yellow zone when sources genuinely conflict.`,
+- confidence is null (no evidence) → verdict MUST be "unverified"`,
                             },
                             {
                                 role: "user",
@@ -546,27 +616,37 @@ async function analyzeOverallReport(
 
     if (!claims || claims.length === 0) return;
 
-    const claimsSummary = claims
+    // Compute per-category scores — EXCLUDE unverified claims
+    const categoryMap: Record<string, { total: number; sum: number }> = {}
+    for (const c of claims) {
+        if (c.confidence === null || c.confidence === undefined || c.verdict === 'unverified') continue
+
+        const cat = c.category || "other"
+        if (!categoryMap[cat]) categoryMap[cat] = { total: 0, sum: 0 }
+        categoryMap[cat].total++
+        categoryMap[cat].sum += Number(c.confidence)
+    }
+    const categoryScores: Record<string, number | null> = {}
+    for (const [cat, data] of Object.entries(categoryMap)) {
+        categoryScores[cat] = data.total > 0 ? Math.round((data.sum / data.total) * 100) : null
+    }
+
+    // Calculate mathematical overall score
+    const allConfidences = claims
+        .filter(c => c.confidence !== null && c.verdict !== 'unverified')
+        .map(c => Number(c.confidence));
+    const calculatedScore = allConfidences.length > 0
+        ? Math.round((allConfidences.reduce((a, b) => a + b, 0) / allConfidences.length) * 100)
+        : 0;
+
+    // Only pass scored claims to GPT — exclude unverified
+    const scoredClaims = claims.filter(c => c.verdict !== 'unverified' && c.confidence !== null)
+    const claimsSummary = scoredClaims
         .map(
             (c, i) =>
-                `Claim ${i + 1}: ${c.claim_text}\nCategory: ${c.category}\nVerdict: ${c.verdict}\nReasoning: ${c.reasoning}`
+                `Claim ${i + 1}: ${c.claim_text}\nCategory: ${c.category}\nVerdict: ${c.verdict}\nScore: ${Math.round(Number(c.confidence) * 100)}/100\nReasoning: ${c.reasoning}`
         )
         .join("\n\n");
-
-    // Compute per-category scores from claim data
-    const categoryMap: Record<string, { total: number; sum: number }> = {};
-    for (const c of claims) {
-        const cat = c.category || "other";
-        if (!categoryMap[cat]) categoryMap[cat] = { total: 0, sum: 0 };
-        categoryMap[cat].total++;
-        if (c.confidence !== null && c.confidence !== undefined) {
-            categoryMap[cat].sum += Number(c.confidence);
-        }
-    }
-    const categoryScores: Record<string, number | null> = {};
-    for (const [cat, data] of Object.entries(categoryMap)) {
-        categoryScores[cat] = data.total > 0 ? Math.round((data.sum / data.total) * 100) : null;
-    }
 
     try {
         const response = await openai.chat.completions.create({
@@ -580,10 +660,9 @@ async function analyzeOverallReport(
                     schema: {
                         type: "object",
                         properties: {
-                            overall_score: { type: "number" },
                             overall_analysis: { type: "string" }
                         },
-                        required: ["overall_score", "overall_analysis"],
+                        required: ["overall_analysis"],
                         additionalProperties: false
                     }
                 }
@@ -591,21 +670,18 @@ async function analyzeOverallReport(
             messages: [
                 {
                     role: "system",
-                    content: `You are a strict ESG auditor. Based on the assessments of individual claims from a sustainability report, provide an overall credibility score (0 to 100) for the report and a detailed analysis explaining why.
+                    content: `You are analyzing a sustainability report that has been mathematically scored at ${calculatedScore}/100 based on individual claim verification. Your task is to provide a detailed qualitative analysis of this score.
 
-SCORING RULES:
-- Weight contradicted claims heavily — a single verified lie significantly drops the score.
-- Unverified claims (no evidence) are treated as yellow flags, not green.
-- Supported claims only raise the score if backed by strong evidence.
-- A report full of contradictions should score below 30.
-- A well-evidenced report should score above 70.
-- Mixed reports should score 30-70.
-
-'overall_analysis' should be a detailed, multi-paragraph plain text assessment. DO NOT use markdown formatting — no #, **, -, or * characters. Write in plain paragraphs separated by blank lines. Each paragraph should address a specific aspect: contradictions found, verified positive claims, areas lacking evidence, and final verdict.`,
+ANALYSIS RULES:
+- Explain why the score is ${calculatedScore}/100 based on the evidence provided in the claims.
+- Address specific contradictions found (if any), verified positive claims, and areas lacking evidence.
+- Do NOT mention the word "mathematical" or "calculated" - describe it as the "overall credibility score".
+- 'overall_analysis' should be a detailed, multi-paragraph plain text assessment. 
+- DO NOT use markdown formatting — no #, **, -, or * characters. Write in plain paragraphs separated by blank lines.`,
                 },
                 {
                     role: "user",
-                    content: `Assess the overall report based on these claims:\n\n${claimsSummary}`,
+                    content: `Provide a qualitative analysis for the report score of ${calculatedScore}/100 based on these verified claims:\n\n${claimsSummary}`,
                 },
             ],
         });
@@ -613,28 +689,25 @@ SCORING RULES:
         const content = response.choices[0]?.message?.content || "{}";
         const parsed = JSON.parse(content);
 
-        const score = typeof parsed.overall_score === "number" ? parsed.overall_score : 0;
         const analysis = typeof parsed.overall_analysis === "string" ? parsed.overall_analysis : "Analysis could not be completed.";
 
         await supabase
             .from("reports")
             .update({
-                overall_score: score,
+                overall_score: calculatedScore,
                 overall_analysis: analysis,
                 category_scores: categoryScores,
             })
             .eq("id", reportId);
 
-        console.log(`[Pipeline] Overall analysis saved: score=${score}, categories=${JSON.stringify(categoryScores)}`);
+        console.log(`[Pipeline] Overall analysis saved: computed_score=${calculatedScore}, categories=${JSON.stringify(categoryScores)}`);
     } catch (err) {
         console.error("Overall analysis failed:", err);
         // Fallback: save computed score from claims so overview always renders
-        const allConfidences = claims.filter(c => c.confidence !== null).map(c => Number(c.confidence));
-        const fallbackScore = allConfidences.length > 0 ? Math.round((allConfidences.reduce((a, b) => a + b, 0) / allConfidences.length) * 100) : 0;
         await supabase
             .from("reports")
             .update({
-                overall_score: fallbackScore,
+                overall_score: calculatedScore,
                 overall_analysis: "Automated overall analysis could not be completed. The score shown is an average of individual claim scores.",
                 category_scores: categoryScores,
             })
