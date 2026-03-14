@@ -7,10 +7,6 @@
 
 greenwash is a premium ESG (Environmental, Social, and Governance) analytics platform that uses AI and real-time web verification to audit sustainability claims in corporate reports. It moves beyond simple extraction by actively searching for independent evidence to validate or contradict corporate sustainability promises.
 
-<p align="center">
-  <img src="public/greenwash_icon.png" alt="greenwash Icon" width="100" />
-</p>
-
 ## ✨ Features
 
 - **Automated Claim Extraction**: Parses long PDF sustainability reports to find specific, verifiable ESG claims.
