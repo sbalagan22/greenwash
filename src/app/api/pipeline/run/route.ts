@@ -400,12 +400,13 @@ async function verifyClaims(
         .filter(c => c.claim_text.length > 40)
         .slice(0, 25)
 
+    const { data: report } = await supabase.from("reports").select("company_name").eq("id", reportId).single()
+    const companyName = report?.company_name || "the company"
+
     const limit = pLimit(10)
     await Promise.all(
         searchableClaims.map((claim, i) =>
             limit(async () => {
-                const { data: report } = await supabase.from("reports").select("company_name").eq("id", reportId).single()
-                const companyName = report?.company_name || "the company"
 
                 // Fix slug to handle hyphenated names like "Coca-Cola"
                 const companySlug = companyName.toLowerCase().replace(/\s+/g, '-')
