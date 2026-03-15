@@ -102,9 +102,12 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Trigger the pipeline asynchronously (fire-and-forget)
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-        fetch(`${baseUrl}/api/pipeline/run`, {
+        // Trigger the pipeline asynchronously using request.nextUrl.origin
+        // This ensures the correct URL (localhost or Vercel production) is used.
+        const origin = request.nextUrl.origin;
+        console.log("[Upload] Triggering pipeline at:", `${origin}/api/pipeline/run`);
+
+        const triggerPipeline = fetch(`${origin}/api/pipeline/run`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -113,6 +116,11 @@ export async function POST(request: NextRequest) {
                 pdfUrl: publicUrl,
             }),
         }).catch((err) => console.error("Pipeline trigger error:", err));
+
+        // Use waitUntil if available (Next.js 15+) or just don't await to let it run in background
+        if (typeof (request as any).waitUntil === 'function') {
+            (request as any).waitUntil(triggerPipeline);
+        }
 
         return NextResponse.json({
             reportId: report.id,
