@@ -27,7 +27,7 @@ interface Claim {
     claim_text: string;
     category: string;
     entities: Record<string, unknown> | null;
-    verdict: "supported" | "unverified" | "contradicted" | null;
+    verdict: "supported" | "unverified" | "contradicted" | "mixed" | null;
     confidence: number | null;
     reasoning: string | null;
     seq_index: number;
@@ -66,8 +66,8 @@ type ViewMode = "overview" | "claims" | "document";
 function getVerdict(score: number | null): 'supported' | 'mixed' | 'contradicted' | 'unverified' {
   if (score === null || score === undefined) return 'unverified';
   const normalized = score <= 1 && score > 0 ? score * 100 : score;
-  if (normalized >= 70) return 'supported';
-  if (normalized >= 30) return 'mixed';
+  if (normalized >= 60) return 'supported';
+  if (normalized >= 25) return 'mixed';
   return 'contradicted';
 }
 
@@ -754,7 +754,7 @@ function ClaimsView({
                                 <div className="w-2.5 h-2.5 rounded-full" style={{ background: "var(--brand-dark)" }} />
                                 AI Reasoning
                             </h3>
-                            <div style={{ background: '#F7F8F7', borderRadius: '12px', borderLeft: '3px solid #85C391', padding: '32px' }}>
+                            <div style={{ background: getScoreBg(selectedClaim.confidence), borderRadius: '12px', borderLeft: `3px solid ${getScoreColor(selectedClaim.confidence)}`, padding: '32px' }}>
                                 <p style={{ fontSize: 15, color: '#333', lineHeight: 1.7 }} className="font-sans">
                                     {selectedClaim.reasoning || "Insufficient data to provide automated reasoning."}
                                 </p>
