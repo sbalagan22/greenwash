@@ -1,26 +1,30 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React from "react";
 import { Worker, Viewer } from "@react-pdf-viewer/core";
-import * as pdfjs from "pdfjs-dist";
 
-// Use CDN worker to avoid bundling issues
-const workerUrl = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`;
+// Import styles directly in the client component
+import '@react-pdf-viewer/core/lib/styles/index.css';
+import '@react-pdf-viewer/default-layout/lib/styles/index.css';
+
+// Use a consistent worker version matching package.json for reliability
+const pdfjsVersion = "3.11.174";
+const workerUrl = `https://unpkg.com/pdfjs-dist@${pdfjsVersion}/build/pdf.worker.min.js`;
 
 interface PDFViewerProps {
     fileUrl: string;
 }
 
 const PDFViewer: React.FC<PDFViewerProps> = ({ fileUrl }) => {
-    useEffect(() => {
-        // Set worker source for pdfjs-dist
-        pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
-    }, []);
-
     return (
-        <div className="h-full w-full">
+        <div className="h-full w-full bg-[#f4f4f4]">
             <Worker workerUrl={workerUrl}>
-                <Viewer fileUrl={fileUrl} />
+                <div className="h-full w-full">
+                    <Viewer 
+                        fileUrl={fileUrl}
+                        defaultScale={1.2}
+                    />
+                </div>
             </Worker>
         </div>
     );
