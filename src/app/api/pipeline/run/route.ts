@@ -469,26 +469,6 @@ async function verifyClaims(
                             for (const result of results.results) {
                                 if (!result.content || result.content.length < 100) continue
 
-                                // HARD FILTER — skip any result that doesn't mention the company name
-                                // Loosened company name check — Title + first 200 chars of content
-                                const contentSnippet = result.content.toLowerCase().slice(0, 200)
-                                const titleLower = (result.title || '').toLowerCase()
-                                const companyNameLower = companyName.toLowerCase()
-
-                                const companyVariants = [
-                                    companyNameLower,
-                                    companyNameLower.replace(/[^\w]/g, ''),
-                                    companyNameLower.split(/[\s-]/)[0],
-                                ]
-
-                                const mentionsCompany = companyVariants.some(variant =>
-                                    contentSnippet.includes(variant) || titleLower.includes(variant)
-                                )
-
-                                if (!mentionsCompany) {
-                                    console.log(`[Verify] Skipping irrelevant result: ${result.title}`)
-                                    continue
-                                }
 
                                 // Skip company's own URLs
                                 const urlLower = result.url.toLowerCase()
