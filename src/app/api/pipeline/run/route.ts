@@ -475,22 +475,12 @@ async function verifyClaims(
                                 const urlLower = result.url.toLowerCase()
                                 if (urlLower.includes(companySlug) || urlLower.includes(companySlugNoHyphen)) continue
 
-                                // Step 1 — Relevancy gate
-                                const relevancyResponse = await openai.chat.completions.create({
-                                    model: "gpt-4o-mini",
-                                    max_completion_tokens: 10,
-                                    messages: [
-                                        { role: "system", content: "Answer only 'yes' or 'no'." },
-                                        {
-                                            role: "user",
-                                            content: `Is this source useful for evaluating this sustainability claim made by ${companyName}?\n\nClaim: "${claim.claim_text.slice(0, 120)}"\n\nSource title: ${result.title}\nSource content: ${result.content.slice(0, 300)}\n\nAnswer 'yes' if the source provides evidence, independent analysis, or relevant context (even if from an NGO or industry report). Answer 'no' only if it is completely off-topic or about a different company entirely.`
-                                        }
-                                    ]
-                                })
+                                // Step 1 — Relevancy gate (Fast string check)
+                                const isRelevant = (result.title || '').toLowerCase().includes(companyName.toLowerCase().split(' ')[0])
+                                    || result.content.slice(0, 500).toLowerCase().includes(companyName.toLowerCase().split(' ')[0])
 
-                                const isRelevant = relevancyResponse.choices[0].message.content?.toLowerCase().includes('yes')
                                 if (!isRelevant) {
-                                    console.log(`[Verify] Skipping irrelevant source: ${result.title}`)
+                                    console.log(`[Verify] Skipping irrelevant source (no company name): ${result.title}`)
                                     continue // do not insert — not relevant to this claim
                                 }
 
