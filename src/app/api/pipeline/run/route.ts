@@ -475,7 +475,26 @@ async function verifyClaims(
                                 const urlLower = result.url.toLowerCase()
                                 if (urlLower.includes(companySlug) || urlLower.includes(companySlugNoHyphen)) continue
 
-                                // GPT reads the actual content to determine support vs contradiction
+                                // Step 1 — Relevancy gate
+                                const relevancyResponse = await openai.chat.completions.create({
+                                    model: "gpt-4o-mini",
+                                    max_completion_tokens: 10,
+                                    messages: [
+                                        { role: "system", content: "Answer only 'yes' or 'no'." },
+                                        {
+                                            role: "user",
+                                            content: `Is this source actually about ${companyName} and relevant to this specific claim?\n\nClaim: "${claim.claim_text.slice(0, 120)}"\n\nSource title: ${result.title}\nSource content: ${result.content.slice(0, 300)}\n\nAnswer 'yes' only if the source directly discusses ${companyName}'s own practices, performance, or track record related to this claim topic. Answer 'no' if it's about another company, industry trends, or unrelated topics.`
+                                        }
+                                    ]
+                                })
+
+                                const isRelevant = relevancyResponse.choices[0].message.content?.toLowerCase().includes('yes')
+                                if (!isRelevant) {
+                                    console.log(`[Verify] Skipping irrelevant source: ${result.title}`)
+                                    continue // do not insert — not relevant to this claim
+                                }
+
+                                // Step 2 — Support vs contradiction (only runs if relevant)
                                 const supportCheckResponse = await openai.chat.completions.create({
                                     model: "gpt-4o-mini",
                                     max_completion_tokens: 10,
@@ -483,10 +502,11 @@ async function verifyClaims(
                                         { role: "system", content: "Answer only 'supports' or 'contradicts'." },
                                         {
                                             role: "user",
-                                            content: `Does this source support or contradict this specific claim made by ${companyName}?\n\nClaim: "${claim.claim_text.slice(0, 120)}"\n\nSource title: ${result.title}\nSource content: ${result.content.slice(0, 400)}\n\nIf the source is not directly about ${companyName} or this specific claim, answer 'supports' by default.`
+                                            content: `Does this source support or contradict this specific claim made by ${companyName}?\n\nClaim: "${claim.claim_text.slice(0, 120)}"\n\nSource title: ${result.title}\nSource content: ${result.content.slice(0, 400)}`
                                         }
                                     ]
                                 })
+
                                 const supports = !supportCheckResponse.choices[0].message.content?.toLowerCase().includes('contradicts')
 
                                 await supabase.from("evidence").insert([{
