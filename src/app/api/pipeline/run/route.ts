@@ -57,7 +57,17 @@ async function extractClaims(
     // Download and parse PDF
     let pdfText = "";
     try {
-        const fileName = pdfUrl.split("/").pop();
+        let finalPdfUrl = pdfUrl;
+
+        if (!finalPdfUrl) {
+            console.log(`[Pipeline] pdfUrl missing in trigger, fetching from report: ${reportId}`);
+            const { data: report } = await supabase.from("reports").select("pdf_url").eq("id", reportId).single();
+            finalPdfUrl = report?.pdf_url;
+        }
+
+        if (!finalPdfUrl) throw new Error("Could not find PDF URL for this report.");
+
+        const fileName = finalPdfUrl.split("/").pop();
         if (!fileName) throw new Error("Invalid PDF URL");
 
         const { data: fileData, error: downloadError } = await supabase.storage.from("pdfs").download(fileName);
@@ -71,8 +81,8 @@ async function extractClaims(
         throw new Error("PDF extraction error: " + (err instanceof Error ? err.message : String(err)));
     }
 
-    if (!pdfText || pdfText.trim().length < 100) {
-        throw new Error("Could not extract text from PDF. The document may be image-only or corrupted.");
+    if (!pdfText || pdfText.trim().length < 50) {
+        throw new Error("Could not extract text from this PDF. It might be a scanned document (image-only), or the text is in a format we can't read yet. Please try a different report.");
     }
 
     // Store the full PDF text in the reports table for the UI to show

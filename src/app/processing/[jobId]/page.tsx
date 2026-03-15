@@ -108,8 +108,7 @@ export default function ProcessingPage() {
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                         reportId: data.report_id,
-                        jobId: data.id,
-                        pdfUrl: data.pdf_url // Ensure pdf_url is passed if available
+                        jobId: data.id
                     }),
                 }).catch(e => console.error("Retry trigger failed:", e));
             }
