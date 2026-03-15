@@ -81,7 +81,7 @@ async function extractClaims(
         throw new Error("PDF extraction error: " + (err instanceof Error ? err.message : String(err)));
     }
 
-    if (!pdfText || pdfText.trim().length < 50) {
+    if (!pdfText || pdfText.trim().length < 20) {
         throw new Error("Could not extract text from this PDF. It might be a scanned document (image-only), or the text is in a format we can't read yet. Please try a different report.");
     }
 
@@ -471,7 +471,7 @@ async function verifyClaims(
                 for (const query of queries) {
                     try {
                         const results = await tvly.search(query, {
-                            maxResults: 3,
+                            maxResults: 5,
                             searchDepth: "advanced",
                             excludeDomains: selfDomains,
                         })
@@ -502,7 +502,7 @@ async function verifyClaims(
                                         { role: "system", content: "Answer only 'supports' or 'contradicts'." },
                                         {
                                             role: "user",
-                                            content: `Does this source support or contradict this specific claim made by ${companyName}?\n\nClaim: "${claim.claim_text.slice(0, 120)}"\n\nSource title: ${result.title}\nSource content: ${result.content.slice(0, 400)}`
+                                            content: `Does this source support or contradict this specific claim made by ${companyName}?\n\nClaim: "${claim.claim_text.slice(0, 120)}"\n\nSource title: ${result.title}\nSource content: ${result.content.slice(0, 400)}\n\nOnly answer 'contradicts' if the source provides direct evidence or a specific data point that explicitly refutes the claim. If the source is neutral, broadly relevant, or slightly indirect, answer 'supports'.`
                                         }
                                     ]
                                 })
@@ -607,30 +607,27 @@ async function scoreClaims(
                         messages: [
                             {
                                 role: "system",
-                                content: `You are a strict ESG auditor scoring a corporate sustainability claim against real evidence.
+                                content: `You are an ESG analyst scoring a corporate sustainability claim against real-world evidence. Your goal is to be fair but rigorous.
 
 IMPORTANT WEIGHTING RULES:
 - Only count evidence that directly addresses THIS specific claim and THIS specific company.
-- Evidence about other companies (even in the same industry) should be ignored entirely.
-- Evidence that mentions the company but discusses a different topic should be ignored.
-- A single highly relevant contradicting source outweighs multiple vague supporting sources.
 - A single highly relevant supporting source with no contradictions should score 0.85+.
+- If evidence is indirect but positive, it should still contribute to a higher score.
+- Only penalize heavily if there is direct, credible contradictory data.
 
 When determining the credibility score (0.0 to 1.0):
-- 0.90–1.00: Multiple independent sources directly confirm the claim with NO relevant contradicting evidence.
-- 0.70–0.89: Sources mostly support the claim with minor gaps or one loosely related contradiction.
-- 0.31–0.69: Evidence is genuinely MIXED — direct contradictions exist alongside direct support.
-- 0.10–0.30: Evidence mostly directly contradicts the claim.
-- 0.00–0.10: Evidence directly and clearly contradicts the claim with no credible support.
-- null: NO evidence was found at all. Do not guess a score.
+- 0.90–1.00: Direct independent confirmation with NO relevant contradictions.
+- 0.60–0.89: Sources mostly support the claim or provide positive context.
+- 0.30–0.59: Evidence is genuinely MIXED — clear contradictions exist alongside support.
+- 0.10–0.29: Evidence mostly directly contradicts the claim.
+- 0.00–0.10: Clear, direct contradiction with no credible support.
+- null: NO evidence was found at all.
 
 VERDICT RULES:
-- confidence < 0.31 → verdict MUST be "contradicted"
-- confidence >= 0.31 and < 0.70 → verdict MUST be "mixed"
-- confidence >= 0.70 → verdict MUST be "supported"
-- confidence is null → verdict MUST be "unverified"
-
-DO NOT lower a score because of tangentially related negative news about other companies or the industry in general. The score must reflect evidence about THIS company and THIS specific claim only.`,
+- confidence < 0.25 → verdict MUST be "contradicted"
+- confidence >= 0.25 and < 0.60 → verdict MUST be "mixed"
+- confidence >= 0.60 → verdict MUST be "supported"
+- confidence is null → verdict MUST be "unverified"`,
                             },
                             {
                                 role: "user",
