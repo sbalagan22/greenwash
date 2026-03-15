@@ -428,9 +428,11 @@ async function verifyClaims(
 
                 const selfDomains = [
                     `${companySlugNoHyphen}.com`,
+                    `${companySlug}.com`,
                     'hm.com',
+                    'hmgroup.com',
                     'starbucks.com',
-                    'cocacola.com',
+                    'coca-colacompany.com',
                     'coca-cola.com',
                 ]
 
@@ -493,9 +495,9 @@ async function verifyClaims(
                                 if (!result.content || result.content.length < 100) continue
 
 
-                                // Skip company's own URLs
-                                const urlLower = result.url.toLowerCase()
-                                if (urlLower.includes(companySlug) || urlLower.includes(companySlugNoHyphen)) continue
+                                // Skip company's own URLs (only if it's their domain)
+                                const isOwnSite = selfDomains.some(domain => urlLower.includes(domain))
+                                if (isOwnSite) continue
 
                                 // Skip blocked sources
                                 const blockedSources = ['sciencebasedtargets.org/case-studies', 'sbti.services']
