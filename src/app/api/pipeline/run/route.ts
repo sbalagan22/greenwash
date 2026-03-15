@@ -812,6 +812,8 @@ export async function POST(request: NextRequest) {
         jobId = body.jobId;
         const pdfUrl = body.pdfUrl;
 
+        console.log(`[Pipeline] STARTING: reportId=${reportId}, jobId=${jobId}`);
+
         // STEP 1: Extract
         await extractClaims(reportId, jobId, pdfUrl, supabase);
 

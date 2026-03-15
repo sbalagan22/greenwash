@@ -99,6 +99,20 @@ export default function ProcessingPage() {
                     .eq("report_id", data.report_id);
                 if (count !== null) setClaimCount(count);
             }
+
+            // Stuck detector: If still 'queued' after 5 seconds, force trigger the pipeline
+            if (data.step === "queued" && Date.now() - startTime > 5000) {
+                console.log("[Process] Analysis seems stuck in queued, retrying trigger...");
+                fetch("/api/pipeline/run", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        reportId: data.report_id,
+                        jobId: data.id,
+                        pdfUrl: data.pdf_url // Ensure pdf_url is passed if available
+                    }),
+                }).catch(e => console.error("Retry trigger failed:", e));
+            }
         }, 2000);
 
         return () => clearInterval(interval);

@@ -154,8 +154,17 @@ export default function HomePage() {
         });
 
         if (!res.ok) {
-          const data = await res.json();
-          throw new Error(data.error || "Upload failed");
+          const contentType = res.headers.get("content-type");
+          if (contentType && contentType.includes("application/json")) {
+            const data = await res.json();
+            throw new Error(data.error || "Upload failed");
+          } else {
+            const text = await res.text();
+            console.error("[Upload] Non-JSON error:", res.status, text.slice(0, 100));
+            if (res.status === 413) throw new Error("File is too large for the server. Try a smaller PDF.");
+            if (res.status === 504) throw new Error("Upload timed out. Please try again.");
+            throw new Error(`Upload failed (${res.status}). See console for details.`);
+          }
         }
 
         const { reportId, jobId } = await res.json();
