@@ -474,21 +474,26 @@ async function verifyClaims(
                                 const urlLower = result.url.toLowerCase()
                                 if (urlLower.includes(companySlug) || urlLower.includes(companySlugNoHyphen)) continue
 
-                                const contradictionKeywords = [
-                                    "violation", "fine", "penalty", "lawsuit", "misleading",
-                                    "false", "greenwashing", "accused", "scandal", "controversy",
-                                    "failed", "pollution", "contamination", "investigation",
-                                ]
-
-                                const snippetLower = result.content.toLowerCase()
-                                const hasContradiction = contradictionKeywords.some(kw => snippetLower.includes(kw))
+                                // GPT reads the actual content to determine support vs contradiction
+                                const supportCheckResponse = await openai.chat.completions.create({
+                                    model: "gpt-4o-mini",
+                                    max_completion_tokens: 10,
+                                    messages: [
+                                        { role: "system", content: "Answer only 'supports' or 'contradicts'." },
+                                        {
+                                            role: "user",
+                                            content: `Does this source support or contradict this specific claim made by ${companyName}?\n\nClaim: "${claim.claim_text.slice(0, 120)}"\n\nSource title: ${result.title}\nSource content: ${result.content.slice(0, 400)}\n\nIf the source is not directly about ${companyName} or this specific claim, answer 'supports' by default.`
+                                        }
+                                    ]
+                                })
+                                const supports = !supportCheckResponse.choices[0].message.content?.toLowerCase().includes('contradicts')
 
                                 await supabase.from("evidence").insert([{
                                     claim_id: claim.id,
                                     source_name: result.title || new URL(result.url).hostname,
                                     source_url: result.url,
                                     snippet: result.content.slice(0, 500),
-                                    supports: !hasContradiction,
+                                    supports: supports,
                                 }])
                             }
                         }
@@ -583,25 +588,40 @@ async function scoreClaims(
                                 role: "system",
                                 content: `You are a strict ESG auditor scoring a corporate sustainability claim against real evidence.
 
-When determining the credibility score (0.0 to 1.0):
-- 0.90–1.00: Multiple independent sources confirm the claim with NO contradicting evidence.
-- 0.70–0.89: Sources mostly support the claim with minor gaps.
-- 0.31–0.69: Evidence is MIXED — some supporting, some contradicting.
-- 0.10–0.30: Evidence mostly contradicts the claim.
-- 0.00–0.10: Evidence directly and clearly contradicts the claim.
-- null: NO evidence was found at all (Unverified). Do not guess a score.
+IMPORTANT WEIGHTING RULES:
+- Only count evidence that directly addresses THIS specific claim and THIS specific company.
+- Evidence about other companies (even in the same industry) should be ignored entirely.
+- Evidence that mentions the company but discusses a different topic should be ignored.
+- A single highly relevant contradicting source outweighs multiple vague supporting sources.
+- A single highly relevant supporting source with no contradictions should score 0.85+.
 
-The score must reflect the weight and quality of evidence, not a default middle value.
+When determining the credibility score (0.0 to 1.0):
+- 0.90–1.00: Multiple independent sources directly confirm the claim with NO relevant contradicting evidence.
+- 0.70–0.89: Sources mostly support the claim with minor gaps or one loosely related contradiction.
+- 0.31–0.69: Evidence is genuinely MIXED — direct contradictions exist alongside direct support.
+- 0.10–0.30: Evidence mostly directly contradicts the claim.
+- 0.00–0.10: Evidence directly and clearly contradicts the claim with no credible support.
+- null: NO evidence was found at all. Do not guess a score.
 
 VERDICT RULES:
 - confidence < 0.31 → verdict MUST be "contradicted"
 - confidence >= 0.31 and < 0.70 → verdict MUST be "mixed"
 - confidence >= 0.70 → verdict MUST be "supported"
-- confidence is null (no evidence) → verdict MUST be "unverified"`,
+- confidence is null → verdict MUST be "unverified"
+
+DO NOT lower a score because of tangentially related negative news about other companies or the industry in general. The score must reflect evidence about THIS company and THIS specific claim only.`,
                             },
                             {
                                 role: "user",
-                                content: `CLAIM: "${claim.claim_text}"\nCATEGORY: ${claim.category}\n\nEVIDENCE:\n${evidenceSummary}`,
+                                content: `CLAIM TYPE DETECTION:
+- If the claim uses future tense ("aim to", "by 2030", "we will", "we plan to", "we commit to"), it is a FUTURE TARGET. Score it based on whether the company is on track, not whether it has been achieved.
+- If the claim uses past or present tense ("we reduced", "we achieved", "we have"), it is a REPORTED ACHIEVEMENT. Score it strictly based on whether independent sources confirm the achievement.
+
+CLAIM: "${claim.claim_text}"
+CATEGORY: ${claim.category}
+
+EVIDENCE:
+${evidenceSummary}`,
                             },
                         ],
                     });
