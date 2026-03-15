@@ -389,7 +389,7 @@ export default function ReportPage({ params }: { params: Promise<{ reportId: str
         async function loadReportData() {
             try {
                 // Point "demo" to the real H&M report ID
-                const activeReportId = reportId === "demo" ? "08362af7-1cf1-4355-aa28-151a2b294e23" : reportId;
+                const activeReportId = reportId === "demo" ? "ddbf534b-391d-44d5-b603-734a1d200c26" : reportId;
 
                 const { supabase } = await import("@/lib/supabase");
                 

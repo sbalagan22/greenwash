@@ -393,7 +393,7 @@ export default function HomePage() {
 
           <div className="text-center mt-10">
             <Button
-              onClick={() => router.push("/report/08362af7-1cf1-4355-aa28-151a2b294e23")}
+              onClick={() => router.push("/report/ddbf534b-391d-44d5-b603-734a1d200c26")}
               size="lg"
               className="font-bold text-base gap-2 px-8 h-12 shadow-lg hover:shadow-xl transition-all hover:-translate-y-0.5 rounded-full"
               style={{ background: "var(--text-primary)", color: "white" }}
