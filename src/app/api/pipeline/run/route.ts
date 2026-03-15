@@ -485,12 +485,20 @@ async function verifyClaims(
                                 const urlLower = result.url.toLowerCase()
                                 if (urlLower.includes(companySlug) || urlLower.includes(companySlugNoHyphen)) continue
 
+                                // Skip blocked sources
+                                const blockedSources = ['sciencebasedtargets.org/case-studies', 'sbti.services']
+                                if (blockedSources.some(blocked => urlLower.includes(blocked))) {
+                                    console.log(`[Verify] Skipping blocked source: ${result.url}`)
+                                    continue
+                                }
+
                                 // Step 1 — Relevancy gate (Fast string check)
-                                const isRelevant = (result.title || '').toLowerCase().includes(companyName.toLowerCase().split(' ')[0])
-                                    || result.content.slice(0, 500).toLowerCase().includes(companyName.toLowerCase().split(' ')[0])
+                                const companyCheck = companyName.toLowerCase()
+                                const isRelevant = (result.title || '').toLowerCase().includes(companyCheck)
+                                    || result.content.slice(0, 500).toLowerCase().includes(companyCheck)
 
                                 if (!isRelevant) {
-                                    console.log(`[Verify] Skipping irrelevant source (no company name): ${result.title}`)
+                                    console.log(`[Verify] Skipping irrelevant source (no company match): ${result.title}`)
                                     continue // do not insert — not relevant to this claim
                                 }
 
