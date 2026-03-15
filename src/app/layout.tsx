@@ -32,7 +32,11 @@ export const metadata: Metadata = {
     type: "website",
   },
   icons: {
-    icon: "/greenwash_icon.png",
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/icon.png", type: "image/png" },
+      { url: "/greenwash_icon.png", type: "image/png" },
+    ],
     apple: "/greenwash_icon.png",
   },
 };
