@@ -387,182 +387,73 @@ async function disambiguateEntities(
 // ============================================================
 // STEP 3: Verify via Tavily search — parallel with pLimit(10)
 // ============================================================
-async function verifyClaims(
-    reportId: string,
-    jobId: string,
-    supabase: ReturnType<typeof getServiceSupabase>
-) {
-    await supabase
-        .from("jobs")
-        .update({ step: "verifying", progress: 65, updated_at: new Date().toISOString() })
-        .eq("id", jobId);
+async function verifyClaims(reportId: string, jobId: string, supabase: any) {
+  await supabase.from("jobs").update({ step: "verifying", progress: 65, updated_at: new Date().toISOString() }).eq("id", jobId)
 
-    const { data: claims } = await supabase
-        .from("claims")
-        .select("id, claim_text, entities, category")
-        .eq("report_id", reportId);
+  const { data: claims } = await supabase.from("claims").select("id, claim_text, entities, category").eq("report_id", reportId)
+  if (!claims || claims.length === 0) return
 
-    if (!claims || claims.length === 0) return;
+  // Fetch company name once outside loop
+  const { data: report } = await supabase.from("reports").select("company_name").eq("id", reportId).single()
+  const companyName = (report as any)?.company_name || "the company"
 
-    interface ClaimRow { id: string; claim_text: string; entities: Record<string, unknown>; category: string }
-    // Cap to 25 searchable claims to control credits
-    const searchableClaims = (claims as unknown as ClaimRow[])
-        .filter(c => c.claim_text.length > 40)
-        .slice(0, 25)
+  const companySlugNoHyphen = companyName.toLowerCase().replace(/[^\w]/g, '')
+  const selfDomains = [`${companySlugNoHyphen}.com`, `${companySlugNoHyphen}group.com`, 'coca-colacompany.com', 'coca-cola.com', 'hm.com', 'hmgroup.com']
 
-    const { data: report } = await supabase.from("reports").select("company_name").eq("id", reportId).single()
-    const companyName = report?.company_name || "the company"
+  const searchableClaims = (claims as any[]).filter((c: any) => c.claim_text.length > 40).slice(0, 25)
+  const limit = pLimit(10)
 
-    const limit = pLimit(10)
-    await Promise.all(
-        searchableClaims.map((claim, i) =>
-            limit(async () => {
+  await Promise.all(
+    searchableClaims.map((claim: any, i: number) =>
+      limit(async () => {
+        const queries = [
+          `"${companyName}" ${claim.claim_text.slice(0, 80).trim()} fact check verification`,
+          `"${companyName}" ${claim.category} greenwashing misleading false`,
+        ]
 
-                // Helper to get brand name (e.g. "H&M Group" -> "H&M", "Starbucks Corporation" -> "Starbucks")
-                const getBrandName = (name: string) => {
-                    return name.replace(/\s+(Corporation|Corp|Inc|Incorporated|LLC|Ltd|Limited|Group|PLC|GmbH|NV|SA)$/i, '').trim();
-                };
-                const brandName = getBrandName(companyName);
-                const companySlug = brandName.toLowerCase().replace(/\s+/g, '-');
-                const companySlugNoHyphen = brandName.toLowerCase().replace(/[^\w]/g, '');
+        for (const query of queries) {
+          try {
+            const results = await tvly.search(query, { maxResults: 2, searchDepth: "advanced", excludeDomains: selfDomains })
 
-                const selfDomains = [
-                    `${companySlugNoHyphen}.com`,
-                    `${companySlug}.com`,
-                    'hm.com',
-                    'hmgroup.com',
-                    'starbucks.com',
-                    'coca-colacompany.com',
-                    'coca-cola.com',
+            for (const result of results.results || []) {
+              if (!result.content || result.content.length < 100) continue
+
+              // Simple relevancy filter — the original working version
+              const filterResponse = await openai.chat.completions.create({
+                model: "gpt-4o-mini",
+                max_completion_tokens: 10,
+                messages: [
+                  { role: "system", content: "Answer only yes or no." },
+                  { role: "user", content: `Does this source relate to ${companyName}'s sustainability or environmental practices?\n\nSource title: ${result.title}\nSource snippet: ${result.content.slice(0, 400)}` }
                 ]
+              })
 
-                const claimSnippet = claim.claim_text.slice(0, 80).trim()
-                const year = new Date().getFullYear()
+              const isRelevant = filterResponse.choices[0].message.content?.toLowerCase().includes("yes")
+              if (!isRelevant) continue
 
-                let queries: string[] = []
+              const contradictionKeywords = ["violation", "fine", "penalty", "lawsuit", "misleading", "false", "greenwashing", "accused", "scandal", "controversy", "failed", "pollution", "contamination", "investigation"]
+              const hasContradiction = contradictionKeywords.some(kw => result.content.toLowerCase().includes(kw))
 
-                // Category-specific search strategies
-                switch (claim.category?.toLowerCase()) {
-                    case 'carbon':
-                    case 'emissions':
-                    case 'climate':
-                        queries = [
-                            `${brandName} ${year} emissions reduction target progress report`,
-                            `${brandName} carbon emissions greenwashing controversy investigation`,
-                        ]
-                        break
-                    case 'sourcing':
-                    case 'supply chain':
-                    case 'waste':
-                    case 'packaging':
-                        queries = [
-                            `${brandName} ${year} sustainability sourcing supply chain audit`,
-                            `${brandName} plastic waste pollution supply chain controversy`,
-                        ]
-                        break
-                    case 'water':
-                        queries = [
-                            `${brandName} ${year} water stewardship withdrawal impact`,
-                            `${brandName} water scarcity pollution violation fine`,
-                        ]
-                        break
-                    case 'labor':
-                    case 'social':
-                    case 'diversity':
-                    case 'human rights':
-                        queries = [
-                            `${brandName} ${year} human rights labor conditions report`,
-                            `${brandName} labor violations lawsuit discrimination controversy`,
-                        ]
-                        break
-                    default:
-                        queries = [
-                            `${brandName} "${claimSnippet}" verification`,
-                            `${brandName} ESG greenwashing criticism investigation`,
-                        ]
-                }
+              await supabase.from("evidence").insert([{
+                claim_id: claim.id,
+                source_name: result.title || new URL(result.url).hostname,
+                source_url: result.url,
+                snippet: result.content.slice(0, 500),
+                supports: !hasContradiction,
+              }])
+            }
+          } catch (searchErr) {
+            console.warn(`Search failed for query "${query}":`, searchErr)
+          }
+        }
 
-                for (const query of queries) {
-                    try {
-                        const results = await tvly.search(query, {
-                            maxResults: 5,
-                            searchDepth: "advanced",
-                            excludeDomains: selfDomains,
-                        })
-
-                        if (results.results && results.results.length > 0) {
-                            for (const result of results.results) {
-                                if (!result.content || result.content.length < 100) continue
-
-                                const urlLower = result.url.toLowerCase()
-
-                                // Skip company's own URLs (only if it's their domain)
-                                const isOwnSite = selfDomains.some(domain => urlLower.includes(domain))
-                                if (isOwnSite) continue
-
-                                // Skip blocked sources
-                                const blockedSources = ['sciencebasedtargets.org/case-studies', 'sbti.services']
-                                if (blockedSources.some(blocked => urlLower.includes(blocked))) {
-                                    console.log(`[Verify] Skipping blocked source: ${result.url}`)
-                                    continue
-                                }
-
-                                // Step 1 — Relevancy gate (Fast string check)
-                                const companyCheck = brandName.toLowerCase()
-                                const isRelevant = (result.title || '').toLowerCase().includes(companyCheck)
-                                    || result.content.slice(0, 500).toLowerCase().includes(companyCheck)
-
-                                if (!isRelevant) {
-                                    console.log(`[Verify] Skipping irrelevant source (no ${brandName} match): ${result.title}`)
-                                    continue // do not insert — not relevant to this claim
-                                }
-
-                                // Step 2 — Support vs contradiction (only runs if relevant)
-                                const supportCheckResponse = await openai.chat.completions.create({
-                                    model: "gpt-4o-mini",
-                                    max_completion_tokens: 10,
-                                    messages: [
-                                        { role: "system", content: "Answer only 'supports' or 'contradicts'." },
-                                        {
-                                            role: "user",
-                                            content: `Does this source support or contradict this specific claim made by ${companyName}?\n\nClaim: "${claim.claim_text.slice(0, 120)}"\n\nSource title: ${result.title}\nSource content: ${result.content.slice(0, 400)}\n\nOnly answer 'contradicts' if the source provides direct evidence or a specific data point that explicitly refutes the claim. If the source is neutral, broadly relevant, or slightly indirect, answer 'supports'.`
-                                        }
-                                    ]
-                                })
-
-                                const supports = !supportCheckResponse.choices[0].message.content?.toLowerCase().includes('contradicts')
-
-                                await supabase.from("evidence").insert([{
-                                    claim_id: claim.id,
-                                    source_name: result.title || new URL(result.url).hostname,
-                                    source_url: result.url,
-                                    snippet: result.content.slice(0, 500),
-                                    supports: supports,
-                                }])
-                            }
-                        }
-                    } catch (searchErr) {
-                        console.warn(`Search failed for query "${query}":`, searchErr)
-                    }
-                }
-
-                const progress = 65 + Math.round(((i + 1) / searchableClaims.length) * 20)
-                await supabase
-                    .from("jobs")
-                    .update({ progress, updated_at: new Date().toISOString() })
-                    .eq("id", jobId)
-            })
-        )
+        await supabase.from("jobs").update({ progress: 65 + Math.round(((i + 1) / searchableClaims.length) * 20), updated_at: new Date().toISOString() }).eq("id", jobId)
+      })
     )
+  )
 
-    // Debug log — shows how many claims got evidence
-    const { data: evidenceCheck } = await supabase
-        .from('evidence')
-        .select('claim_id')
-        .in('claim_id', searchableClaims.map(c => c.id))
-
-    const claimsWithEvidence = new Set(evidenceCheck?.map(e => e.claim_id) || [])
-    console.log(`[Verify] ${claimsWithEvidence.size}/${searchableClaims.length} claims got evidence`)
+  const { data: evidenceCheck } = await supabase.from('evidence').select('claim_id').in('claim_id', searchableClaims.map((c: any) => c.id))
+  console.log(`[Verify] ${new Set(evidenceCheck?.map((e: any) => e.claim_id) || []).size}/${searchableClaims.length} claims got evidence`)
 }
 
 // ============================================================
