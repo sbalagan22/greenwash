@@ -400,6 +400,19 @@ async function verifyClaims(
         .filter(c => c.claim_text.length > 40)
         .slice(0, 25)
 
+    const trustedDomains = [
+        'cdp.net',
+        'sciencebasedtargets.org',
+        'sustainalytics.com',
+        'msci.com',
+        'greenpeace.org',
+        'reuters.com',
+        'bloomberg.com',
+        'theguardian.com',
+        'clientearth.org',
+        'corporateknights.com',
+    ]
+
     const limit = pLimit(10)
     await Promise.all(
         searchableClaims.map((claim, i) =>
@@ -421,24 +434,74 @@ async function verifyClaims(
                 ]
 
                 const claimSnippet = claim.claim_text.slice(0, 80).trim()
+                const year = new Date().getFullYear()
 
-                // 2 queries instead of 3
-                const queries = [
-                    `"${companyName}" ${claimSnippet} fact check verification`,
-                    `"${companyName}" ${claim.category} greenwashing misleading false`,
-                ]
+                let queries: string[] = []
+
+                switch (claim.category) {
+                    case 'carbon':
+                        queries = [
+                            `"${companyName}" CDP score emissions SBTi science based targets ${year}`,
+                            `"${companyName}" carbon emissions greenwashing lawsuit fine investigation ${year}`,
+                        ]
+                        break
+                    case 'sourcing':
+                        queries = [
+                            `"${companyName}" supply chain audit SEDEX WRAP deforestation sourcing ${year}`,
+                            `"${companyName}" supplier violation labor sourcing greenwashing NGO investigation`,
+                        ]
+                        break
+                    case 'water':
+                        queries = [
+                            `"${companyName}" water stewardship CDP water score withdrawal ${year}`,
+                            `"${companyName}" water pollution violation wastewater fine penalty`,
+                        ]
+                        break
+                    case 'labor':
+                        queries = [
+                            `"${companyName}" labor rights workers wages factory conditions audit ${year}`,
+                            `"${companyName}" labor violation lawsuit workers rights fine investigation`,
+                        ]
+                        break
+                    default:
+                        queries = [
+                            `"${companyName}" ${claimSnippet} third party verification ${year}`,
+                            `"${companyName}" greenwashing investigation fine ${year}`,
+                        ]
+                }
 
                 for (const query of queries) {
                     try {
                         const results = await tvly.search(query, {
-                            maxResults: 2,           // was 3
-                            searchDepth: "advanced", // keep advanced for quality
+                            maxResults: 2,
+                            searchDepth: "advanced",
                             excludeDomains: selfDomains,
+                            includeDomains: trustedDomains,
                         })
 
                         if (results.results && results.results.length > 0) {
                             for (const result of results.results) {
                                 if (!result.content || result.content.length < 100) continue
+
+                                // HARD FILTER — skip any result that doesn't mention the company name
+                                const contentLower = result.content.toLowerCase()
+                                const titleLower = (result.title || '').toLowerCase()
+                                const companyNameLower = companyName.toLowerCase()
+
+                                const companyVariants = [
+                                    companyNameLower,
+                                    companyNameLower.replace(/[^\w]/g, ''),
+                                    companyNameLower.split(/[\s-]/)[0],
+                                ]
+
+                                const mentionsCompany = companyVariants.some(variant =>
+                                    contentLower.includes(variant) || titleLower.includes(variant)
+                                )
+
+                                if (!mentionsCompany) {
+                                    console.log(`[Verify] Skipping irrelevant result: ${result.title}`)
+                                    continue
+                                }
 
                                 // Skip company's own URLs
                                 const urlLower = result.url.toLowerCase()
