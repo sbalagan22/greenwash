@@ -494,6 +494,7 @@ async function verifyClaims(
                             for (const result of results.results) {
                                 if (!result.content || result.content.length < 100) continue
 
+                                const urlLower = result.url.toLowerCase()
 
                                 // Skip company's own URLs (only if it's their domain)
                                 const isOwnSite = selfDomains.some(domain => urlLower.includes(domain))
