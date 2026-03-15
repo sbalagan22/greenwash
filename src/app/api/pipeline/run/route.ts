@@ -400,19 +400,6 @@ async function verifyClaims(
         .filter(c => c.claim_text.length > 40)
         .slice(0, 25)
 
-    const trustedDomains = [
-        'cdp.net',
-        'sciencebasedtargets.org',
-        'sustainalytics.com',
-        'msci.com',
-        'greenpeace.org',
-        'reuters.com',
-        'bloomberg.com',
-        'theguardian.com',
-        'clientearth.org',
-        'corporateknights.com',
-    ]
-
     const limit = pLimit(10)
     await Promise.all(
         searchableClaims.map((claim, i) =>
@@ -476,7 +463,6 @@ async function verifyClaims(
                             maxResults: 2,
                             searchDepth: "advanced",
                             excludeDomains: selfDomains,
-                            includeDomains: trustedDomains,
                         })
 
                         if (results.results && results.results.length > 0) {
@@ -484,7 +470,8 @@ async function verifyClaims(
                                 if (!result.content || result.content.length < 100) continue
 
                                 // HARD FILTER — skip any result that doesn't mention the company name
-                                const contentLower = result.content.toLowerCase()
+                                // Loosened company name check — Title + first 200 chars of content
+                                const contentSnippet = result.content.toLowerCase().slice(0, 200)
                                 const titleLower = (result.title || '').toLowerCase()
                                 const companyNameLower = companyName.toLowerCase()
 
@@ -495,7 +482,7 @@ async function verifyClaims(
                                 ]
 
                                 const mentionsCompany = companyVariants.some(variant =>
-                                    contentLower.includes(variant) || titleLower.includes(variant)
+                                    contentSnippet.includes(variant) || titleLower.includes(variant)
                                 )
 
                                 if (!mentionsCompany) {
@@ -506,22 +493,6 @@ async function verifyClaims(
                                 // Skip company's own URLs
                                 const urlLower = result.url.toLowerCase()
                                 if (urlLower.includes(companySlug) || urlLower.includes(companySlugNoHyphen)) continue
-
-                                // Simple relevancy filter — same as the original working version
-                                const filterResponse = await openai.chat.completions.create({
-                                    model: "gpt-4o-mini",
-                                    max_completion_tokens: 10,
-                                    messages: [
-                                        { role: "system", content: "Answer only yes or no." },
-                                        {
-                                            role: "user",
-                                            content: `Does this source relate to ${companyName}'s sustainability or environmental practices?\n\nSource title: ${result.title}\nSource snippet: ${result.content.slice(0, 400)}`
-                                        }
-                                    ]
-                                })
-
-                                const isRelevant = filterResponse.choices[0].message.content?.toLowerCase().includes("yes")
-                                if (!isRelevant) continue
 
                                 const contradictionKeywords = [
                                     "violation", "fine", "penalty", "lawsuit", "misleading",
