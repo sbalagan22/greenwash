@@ -418,17 +418,20 @@ async function verifyClaims(
         searchableClaims.map((claim, i) =>
             limit(async () => {
 
-                // Fix slug to handle hyphenated names like "Coca-Cola"
-                const companySlug = companyName.toLowerCase().replace(/\s+/g, '-')
-                const companySlugNoHyphen = companyName.toLowerCase().replace(/[^\w]/g, '')
+                // Helper to get brand name (e.g. "H&M Group" -> "H&M", "Starbucks Corporation" -> "Starbucks")
+                const getBrandName = (name: string) => {
+                    return name.replace(/\s+(Corporation|Corp|Inc|Incorporated|LLC|Ltd|Limited|Group|PLC|GmbH|NV|SA)$/i, '').trim();
+                };
+                const brandName = getBrandName(companyName);
+                const companySlug = brandName.toLowerCase().replace(/\s+/g, '-');
+                const companySlugNoHyphen = brandName.toLowerCase().replace(/[^\w]/g, '');
 
                 const selfDomains = [
                     `${companySlugNoHyphen}.com`,
-                    `${companySlugNoHyphen}group.com`,
-                    'coca-colacompany.com',
-                    'coca-cola.com',
                     'hm.com',
-                    'hmgroup.com',
+                    'starbucks.com',
+                    'cocacola.com',
+                    'coca-cola.com',
                 ]
 
                 const claimSnippet = claim.claim_text.slice(0, 80).trim()
@@ -436,35 +439,44 @@ async function verifyClaims(
 
                 let queries: string[] = []
 
-                switch (claim.category) {
+                // Category-specific search strategies
+                switch (claim.category?.toLowerCase()) {
                     case 'carbon':
+                    case 'emissions':
+                    case 'climate':
                         queries = [
-                            `${companyName} CDP score emissions SBTi science based targets ${year}`,
-                            `${companyName} carbon emissions greenwashing lawsuit fine investigation ${year}`,
+                            `${brandName} ${year} emissions reduction target progress report`,
+                            `${brandName} carbon emissions greenwashing controversy investigation`,
                         ]
                         break
                     case 'sourcing':
+                    case 'supply chain':
+                    case 'waste':
+                    case 'packaging':
                         queries = [
-                            `${companyName} supply chain audit SEDEX WRAP deforestation sourcing ${year}`,
-                            `${companyName} supplier violation labor sourcing greenwashing NGO investigation`,
+                            `${brandName} ${year} sustainability sourcing supply chain audit`,
+                            `${brandName} plastic waste pollution supply chain controversy`,
                         ]
                         break
                     case 'water':
                         queries = [
-                            `${companyName} water stewardship CDP water score withdrawal ${year}`,
-                            `${companyName} water pollution violation wastewater fine penalty`,
+                            `${brandName} ${year} water stewardship withdrawal impact`,
+                            `${brandName} water scarcity pollution violation fine`,
                         ]
                         break
                     case 'labor':
+                    case 'social':
+                    case 'diversity':
+                    case 'human rights':
                         queries = [
-                            `${companyName} labor rights workers wages factory conditions audit ${year}`,
-                            `${companyName} labor violation lawsuit workers rights fine investigation`,
+                            `${brandName} ${year} human rights labor conditions report`,
+                            `${brandName} labor violations lawsuit discrimination controversy`,
                         ]
                         break
                     default:
                         queries = [
-                            `${companyName} ${claimSnippet} third party verification ${year}`,
-                            `${companyName} greenwashing investigation fine ${year}`,
+                            `${brandName} "${claimSnippet}" verification`,
+                            `${brandName} ESG greenwashing criticism investigation`,
                         ]
                 }
 
@@ -493,12 +505,12 @@ async function verifyClaims(
                                 }
 
                                 // Step 1 — Relevancy gate (Fast string check)
-                                const companyCheck = companyName.toLowerCase()
+                                const companyCheck = brandName.toLowerCase()
                                 const isRelevant = (result.title || '').toLowerCase().includes(companyCheck)
                                     || result.content.slice(0, 500).toLowerCase().includes(companyCheck)
 
                                 if (!isRelevant) {
-                                    console.log(`[Verify] Skipping irrelevant source (no company match): ${result.title}`)
+                                    console.log(`[Verify] Skipping irrelevant source (no ${brandName} match): ${result.title}`)
                                     continue // do not insert — not relevant to this claim
                                 }
 
