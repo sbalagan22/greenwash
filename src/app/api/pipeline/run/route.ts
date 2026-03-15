@@ -429,39 +429,39 @@ async function verifyClaims(
                 switch (claim.category) {
                     case 'carbon':
                         queries = [
-                            `"${companyName}" CDP score emissions SBTi science based targets ${year}`,
-                            `"${companyName}" carbon emissions greenwashing lawsuit fine investigation ${year}`,
+                            `${companyName} CDP score emissions SBTi science based targets ${year}`,
+                            `${companyName} carbon emissions greenwashing lawsuit fine investigation ${year}`,
                         ]
                         break
                     case 'sourcing':
                         queries = [
-                            `"${companyName}" supply chain audit SEDEX WRAP deforestation sourcing ${year}`,
-                            `"${companyName}" supplier violation labor sourcing greenwashing NGO investigation`,
+                            `${companyName} supply chain audit SEDEX WRAP deforestation sourcing ${year}`,
+                            `${companyName} supplier violation labor sourcing greenwashing NGO investigation`,
                         ]
                         break
                     case 'water':
                         queries = [
-                            `"${companyName}" water stewardship CDP water score withdrawal ${year}`,
-                            `"${companyName}" water pollution violation wastewater fine penalty`,
+                            `${companyName} water stewardship CDP water score withdrawal ${year}`,
+                            `${companyName} water pollution violation wastewater fine penalty`,
                         ]
                         break
                     case 'labor':
                         queries = [
-                            `"${companyName}" labor rights workers wages factory conditions audit ${year}`,
-                            `"${companyName}" labor violation lawsuit workers rights fine investigation`,
+                            `${companyName} labor rights workers wages factory conditions audit ${year}`,
+                            `${companyName} labor violation lawsuit workers rights fine investigation`,
                         ]
                         break
                     default:
                         queries = [
-                            `"${companyName}" ${claimSnippet} third party verification ${year}`,
-                            `"${companyName}" greenwashing investigation fine ${year}`,
+                            `${companyName} ${claimSnippet} third party verification ${year}`,
+                            `${companyName} greenwashing investigation fine ${year}`,
                         ]
                 }
 
                 for (const query of queries) {
                     try {
                         const results = await tvly.search(query, {
-                            maxResults: 2,
+                            maxResults: 3,
                             searchDepth: "advanced",
                             excludeDomains: selfDomains,
                         })
@@ -483,7 +483,7 @@ async function verifyClaims(
                                         { role: "system", content: "Answer only 'yes' or 'no'." },
                                         {
                                             role: "user",
-                                            content: `Is this source actually about ${companyName} and relevant to this specific claim?\n\nClaim: "${claim.claim_text.slice(0, 120)}"\n\nSource title: ${result.title}\nSource content: ${result.content.slice(0, 300)}\n\nAnswer 'yes' only if the source directly discusses ${companyName}'s own practices, performance, or track record related to this claim topic. Answer 'no' if it's about another company, industry trends, or unrelated topics.`
+                                            content: `Is this source useful for evaluating this sustainability claim made by ${companyName}?\n\nClaim: "${claim.claim_text.slice(0, 120)}"\n\nSource title: ${result.title}\nSource content: ${result.content.slice(0, 300)}\n\nAnswer 'yes' if the source provides evidence, independent analysis, or relevant context (even if from an NGO or industry report). Answer 'no' only if it is completely off-topic or about a different company entirely.`
                                         }
                                     ]
                                 })
