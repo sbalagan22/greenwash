@@ -9,6 +9,37 @@ export const maxDuration = 300; // 5 minutes max for full pipeline
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const tvly = tavily({ apiKey: process.env.TAVILY_API_KEY! });
 
+/**
+ * Robust text extraction using pdfjs-dist directly.
+ * Avoids DOMMatrix and other browser-api issues in pdf-parse.
+ */
+async function extractTextFromPDF(pdfBuffer: Buffer): Promise<string> {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const pdfjs = require("pdfjs-dist/legacy/build/pdf.js");
+    
+    // Disable worker for simpler node usage if needed, or point to data
+    const loadingTask = pdfjs.getDocument({
+        data: new Uint8Array(pdfBuffer),
+        useSystemFonts: true,
+        disableFontFace: true,
+    });
+
+    const pdf = await loadingTask.promise;
+    let fullText = "";
+
+    for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items
+            // @ts-ignore - items can have 'str' property
+            .map((item: any) => item.str || "")
+            .join(" ");
+        fullText += pageText + "\n";
+    }
+
+    return fullText;
+}
+
 // ============================================================
 // STEP 1: Extract claims from PDF — gpt-4.1-mini (fast)
 // ============================================================
@@ -35,13 +66,9 @@ async function extractClaims(
         }
 
         const pdfBuffer = Buffer.from(await fileData.arrayBuffer());
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const { PDFParse } = require("pdf-parse");
-        const parser = new PDFParse({ data: pdfBuffer });
-        const parsed = await parser.getText();
-        pdfText = parsed.text;
+        pdfText = await extractTextFromPDF(pdfBuffer);
     } catch (err) {
-        throw new Error("PDF parse error: " + (err instanceof Error ? err.message : String(err)));
+        throw new Error("PDF extraction error: " + (err instanceof Error ? err.message : String(err)));
     }
 
     if (!pdfText || pdfText.trim().length < 100) {

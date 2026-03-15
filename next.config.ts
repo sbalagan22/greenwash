@@ -3,7 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   /* config options here */
   reactCompiler: true,
-  serverExternalPackages: ["pdf-parse"],
+  serverExternalPackages: ["pdf-parse", "pdfjs-dist"],
   webpack: (config) => {
     // Tell Webpack to ignore canvas — only needed for pdfjs visual rendering in Node
     // which we don't use (we use it browser-side only)
