@@ -4,6 +4,14 @@ import { getServiceSupabase } from "@/lib/supabase";
 export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
+    const IS_PAUSED = true;
+    if (IS_PAUSED) {
+        return NextResponse.json(
+            { error: "Greenwash is temporarily out of service for new uploads." },
+            { status: 503 }
+        );
+    }
+
     try {
         const formData = await request.formData();
         const file = formData.get("file") as File | null;

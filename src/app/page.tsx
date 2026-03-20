@@ -141,8 +141,11 @@ export default function HomePage() {
         return;
       }
 
-      setError(null);
-      setUploading(true);
+      const IS_PAUSED = true;
+      if (IS_PAUSED) {
+        setError("Greenwash is temporarily out of service for new uploads (Tavily credits depleted). Check back soon!");
+        return;
+      }
 
       try {
         const formData = new FormData();
