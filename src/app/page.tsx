@@ -53,7 +53,7 @@ function FAQItem({ question, answer }: { question: string, answer: string }) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <motion.div 
+    <motion.div
       className="rounded-2xl border border-white bg-white/40 backdrop-blur-xl overflow-hidden shadow-sm transition-all hover:shadow-md"
       style={{ borderColor: "var(--gw-border)" }}
     >
@@ -143,7 +143,7 @@ export default function HomePage() {
 
       const IS_PAUSED = true;
       if (IS_PAUSED) {
-        setError("Greenwash is temporarily out of service for new uploads (Tavily credits depleted). Check back soon!");
+        setError("Greenwash is temporarily out of service for new uploads, Check back soon!");
         return;
       }
 
@@ -190,7 +190,7 @@ export default function HomePage() {
   return (
     <div className="min-h-screen relative overflow-hidden" style={{ background: "var(--bg-base)" }}>
       {/* Premium Background Gradients */}
-      
+
 
       {/* Navigation */}
       <motion.nav
@@ -260,7 +260,7 @@ export default function HomePage() {
             <span className="relative inline-block text-(--brand-dark) min-w-[320px] text-center md:text-left">
               <span
                 className="inline-block"
-                style={{ 
+                style={{
                   color: "#111111",
                   fontFamily: CYCLING_FONTS[currentFontIdx],
                   transition: "font-family 0.1s ease"
@@ -423,7 +423,7 @@ export default function HomePage() {
                 className="font-display text-4xl md:text-5xl font-black mb-6 tracking-tight leading-[1.1]"
                 style={{ color: "var(--text-primary)" }}
               >
-                Trust, but <br/><span style={{ color: "var(--brand-dark)" }}>verify.</span>
+                Trust, but <br /><span style={{ color: "var(--brand-dark)" }}>verify.</span>
               </motion.h2>
               <motion.p
                 variants={fadeInUp}
@@ -488,7 +488,7 @@ export default function HomePage() {
             className="relative lg:h-full lg:flex lg:items-center"
           >
             <div className="absolute inset-x-0 inset-y-10 bg-gradient-to-tr from-[#A5D6A7]/40 to-transparent blur-[80px] rounded-[3rem] -z-10" />
-            
+
             <div
               className="rounded-3xl overflow-hidden bg-white/80 backdrop-blur-2xl shadow-2xl border border-white"
             >
@@ -517,7 +517,7 @@ export default function HomePage() {
                   <span className="text-2xl font-black text-[#8b0000]">34%</span>
                 </div>
               </div>
-              
+
               <div className="px-8 py-6 space-y-4">
                 <p className="text-xs font-bold uppercase tracking-widest text-(--text-muted) mb-6">Key Claims Found</p>
                 {[
